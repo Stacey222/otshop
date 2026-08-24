@@ -1,0 +1,969 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DEACTIVATED
+
+  @@map("user_status")
+}
+
+enum RoleCode {
+  SUPER_ADMIN
+  ADMIN
+  SUPERVISOR
+  OPERATOR
+  VIEWER
+
+  @@map("role_code")
+}
+
+enum RoleScope {
+  SYSTEM
+  WORKSPACE
+
+  @@map("role_scope")
+}
+
+enum ConnectionType {
+  USB
+  WIRELESS_ADB
+
+  @@map("connection_type")
+}
+
+enum MediaSource {
+  LOCAL_FILE
+  MANUAL_UPLOAD
+
+  @@map("media_source")
+}
+
+enum ProductSource {
+  MANUAL
+
+  @@map("product_source")
+}
+
+enum ScheduleKind {
+  IMMEDIATE_TEMPLATE
+  ONCE
+  RECURRING
+
+  @@map("schedule_kind")
+}
+
+enum LeaseStatus {
+  OFFERED
+  ACTIVE
+  RELEASED
+  EXPIRED
+
+  @@map("lease_status")
+}
+
+enum PublisherKind {
+  MOCK
+  SHOPEE_OFFICIAL_API
+  SHOPEE_ANDROID
+
+  @@map("publisher_kind")
+}
+
+enum PublishJobStatus {
+  DRAFT
+  QUEUED
+  PREPARING
+  WAITING_FOR_DEVICE
+  WAITING_FOR_AUTH
+  PROCESSING_MEDIA
+  UPLOADING
+  VERIFYING
+  SUCCESS
+  RETRYING
+  PAUSED
+  CANCELLED
+  FAILED
+  UNKNOWN_PUBLISH_STATE
+  NEEDS_REVIEW
+
+  @@map("publish_job_status")
+}
+
+enum JobPriority {
+  URGENT
+  HIGH
+  NORMAL
+  LOW
+
+  @@map("job_priority")
+}
+
+enum ErrorCategory {
+  RETRYABLE
+  NON_RETRYABLE
+  MANUAL_REVIEW_REQUIRED
+
+  @@map("error_category")
+}
+
+model User {
+  id                String                  @id @db.Uuid
+  email             String                  @unique(map: "users_email_key") @db.Citext
+  displayName       String                  @map("display_name") @db.Text
+  status            UserStatus
+  lastLoginAt       DateTime?               @map("last_login_at") @db.Timestamptz(3)
+  createdAt         DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime                @updatedAt @map("updated_at") @db.Timestamptz(3)
+  credential        UserCredential?
+  sessions          UserSession[]
+  memberships       WorkspaceMember[]       @relation("MemberUser")
+  invitations       WorkspaceMember[]       @relation("MemberInviter")
+  systemRoles       UserSystemRole[]        @relation("SystemRoleUser")
+  grantedRoles      UserSystemRole[]        @relation("SystemRoleGrantor")
+  enrollmentTokens  WorkerEnrollmentToken[]
+  datasets          Dataset[]
+  projects          Project[]
+  schedules         Schedule[]
+  publishJobs       PublishJob[]
+  systemSettings    SystemSetting[]
+  workspaceSettings WorkspaceSetting[]
+
+  @@index([status], map: "users_status_idx")
+  @@map("users")
+}
+
+model UserCredential {
+  userId            String    @id @map("user_id") @db.Uuid
+  passwordHash      String    @map("password_hash") @db.Text
+  passwordChangedAt DateTime  @map("password_changed_at") @db.Timestamptz(3)
+  failedAttempts    Int       @default(0) @map("failed_attempts")
+  lockedUntil       DateTime? @map("locked_until") @db.Timestamptz(3)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_credentials")
+}
+
+model UserSession {
+  id              String    @id @db.Uuid
+  userId          String    @map("user_id") @db.Uuid
+  tokenHash       Bytes     @unique(map: "user_sessions_token_hash_key") @map("token_hash") @db.ByteA
+  expiresAt       DateTime  @map("expires_at") @db.Timestamptz(3)
+  lastSeenAt      DateTime  @map("last_seen_at") @db.Timestamptz(3)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  revokedAt       DateTime? @map("revoked_at") @db.Timestamptz(3)
+  ipPrefix        String?   @map("ip_prefix") @db.Text
+  userAgentFamily String?   @map("user_agent_family") @db.Text
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt], map: "user_sessions_user_expiry_idx")
+  @@map("user_sessions")
+}
+
+model Organization {
+  id         String      @id @db.Uuid
+  name       String      @db.Text
+  slug       String      @unique(map: "organizations_slug_key") @db.Citext
+  status     String      @db.Text
+  createdAt  DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  workspaces Workspace[]
+  auditLogs  AuditLog[]
+
+  @@map("organizations")
+}
+
+model Workspace {
+  id                  String                  @id @db.Uuid
+  organizationId      String                  @map("organization_id") @db.Uuid
+  name                String                  @db.Text
+  slug                String                  @db.Citext
+  timezone            String                  @db.Text
+  status              String                  @db.Text
+  createdAt           DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime                @updatedAt @map("updated_at") @db.Timestamptz(3)
+  organization        Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  members             WorkspaceMember[]
+  accounts            ShopeeAccount[]
+  workers             Worker[]
+  enrollmentTokens    WorkerEnrollmentToken[]
+  devices             Device[]
+  deviceSessions      DeviceSession[]
+  mediaAssets         MediaAsset[]
+  datasets            Dataset[]
+  datasetItems        DatasetItem[]
+  projects            Project[]
+  projectItems        ProjectItem[]
+  productReferences   ProductReference[]
+  projectItemProducts ProjectItemProduct[]
+  schedules           Schedule[]
+  scheduleRuns        ScheduleRun[]
+  publishJobs         PublishJob[]
+  publishAttempts     PublishAttempt[]
+  publishResults      PublishResult[]
+  jobLeases           JobLease[]
+  deviceLeases        DeviceLease[]
+  jobEvents           JobEvent[]
+  auditLogs           AuditLog[]
+  outboxEvents        OutboxEvent[]
+  dispatchState       WorkspaceDispatchState?
+  settings            WorkspaceSetting[]
+
+  @@unique([organizationId, slug], map: "workspaces_organization_slug_key")
+  @@unique([organizationId, id], map: "workspaces_organization_id_id_key")
+  @@index([organizationId, status], map: "workspaces_organization_status_idx")
+  @@map("workspaces")
+}
+
+model Role {
+  id          String            @id @db.Uuid
+  code        RoleCode          @unique
+  scope       RoleScope
+  description String            @db.Text
+  createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  permissions RolePermission[]
+  members     WorkspaceMember[]
+  systemUsers UserSystemRole[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String           @id @db.Uuid
+  code        String           @unique @db.Text
+  description String           @db.Text
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+  roles       RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String     @map("role_id") @db.Uuid
+  permissionId String     @map("permission_id") @db.Uuid
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@index([permissionId], map: "role_permissions_permission_idx")
+  @@map("role_permissions")
+}
+
+model UserSystemRole {
+  userId          String   @map("user_id") @db.Uuid
+  roleId          String   @map("role_id") @db.Uuid
+  grantedByUserId String   @map("granted_by_user_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  user            User     @relation("SystemRoleUser", fields: [userId], references: [id], onDelete: Restrict)
+  role            Role     @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  grantedBy       User     @relation("SystemRoleGrantor", fields: [grantedByUserId], references: [id], onDelete: Restrict)
+
+  @@id([userId, roleId])
+  @@index([roleId], map: "user_system_roles_role_idx")
+  @@index([grantedByUserId], map: "user_system_roles_grantor_idx")
+  @@map("user_system_roles")
+}
+
+model WorkspaceMember {
+  id              String    @id @db.Uuid
+  workspaceId     String    @map("workspace_id") @db.Uuid
+  userId          String    @map("user_id") @db.Uuid
+  roleId          String    @map("role_id") @db.Uuid
+  status          String    @db.Text
+  invitedByUserId String?   @map("invited_by_user_id") @db.Uuid
+  joinedAt        DateTime? @map("joined_at") @db.Timestamptz(3)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  user            User      @relation("MemberUser", fields: [userId], references: [id], onDelete: Restrict)
+  role            Role      @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  invitedBy       User?     @relation("MemberInviter", fields: [invitedByUserId], references: [id], onDelete: Restrict)
+
+  @@unique([workspaceId, userId], map: "workspace_members_workspace_user_key")
+  @@unique([workspaceId, id], map: "workspace_members_workspace_id_id_key")
+  @@index([userId, status], map: "workspace_members_user_status_idx")
+  @@index([roleId], map: "workspace_members_role_idx")
+  @@index([invitedByUserId], map: "workspace_members_inviter_idx")
+  @@map("workspace_members")
+}
+
+model ShopeeAccount {
+  id                String             @id @db.Uuid
+  workspaceId       String             @map("workspace_id") @db.Uuid
+  displayName       String             @map("display_name") @db.Text
+  shopName          String?            @map("shop_name") @db.Text
+  operatorReference String?            @map("operator_reference") @db.Text
+  countryCode       String             @map("country_code") @db.Char(2)
+  status            String             @db.Text
+  boundDeviceId     String?            @map("bound_device_id") @db.Uuid
+  lastVerifiedAt    DateTime?          @map("last_verified_at") @db.Timestamptz(3)
+  createdAt         DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+  version           Int                @default(1)
+  workspace         Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  boundDevice       Device?            @relation("BoundAccountDevice", fields: [workspaceId, boundDeviceId], references: [workspaceId, id], onDelete: Restrict)
+  deviceSessions    DeviceSession[]
+  projects          Project[]
+  productReferences ProductReference[]
+  publishJobs       PublishJob[]
+
+  @@unique([workspaceId, displayName], map: "shopee_accounts_workspace_display_name_key")
+  @@unique([workspaceId, id], map: "shopee_accounts_workspace_id_id_key")
+  @@index([workspaceId, boundDeviceId], map: "shopee_accounts_bound_device_idx")
+  @@map("shopee_accounts")
+}
+
+model Worker {
+  id              String             @id @db.Uuid
+  workspaceId     String             @map("workspace_id") @db.Uuid
+  name            String             @db.Text
+  instanceKey     String             @map("instance_key") @db.Text
+  status          String             @db.Text
+  workerVersion   String             @map("version") @db.Text
+  platform        String             @db.Text
+  lastHeartbeatAt DateTime?          @map("last_heartbeat_at") @db.Timestamptz(3)
+  capabilities    Json               @default("{}") @db.JsonB
+  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+  versionCounter  Int                @default(1) @map("version_counter")
+  workspace       Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  credentials     WorkerCredential[]
+  devices         Device[]
+  deviceSessions  DeviceSession[]
+  publishAttempts PublishAttempt[]
+  jobLeases       JobLease[]
+  deviceLeases    DeviceLease[]
+
+  @@unique([workspaceId, name], map: "workers_workspace_name_key")
+  @@unique([workspaceId, instanceKey], map: "workers_workspace_instance_key_key")
+  @@unique([workspaceId, id], map: "workers_workspace_id_id_key")
+  @@index([workspaceId, status, lastHeartbeatAt], map: "workers_workspace_status_heartbeat_idx")
+  @@map("workers")
+}
+
+model WorkerCredential {
+  id          String    @id @db.Uuid
+  workspaceId String    @map("workspace_id") @db.Uuid
+  workerId    String    @map("worker_id") @db.Uuid
+  secretHash  Bytes     @unique(map: "worker_credentials_secret_hash_key") @map("secret_hash") @db.ByteA
+  label       String    @db.Text
+  expiresAt   DateTime? @map("expires_at") @db.Timestamptz(3)
+  lastUsedAt  DateTime? @map("last_used_at") @db.Timestamptz(3)
+  revokedAt   DateTime? @map("revoked_at") @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  worker      Worker    @relation(fields: [workspaceId, workerId], references: [workspaceId, id], onDelete: Cascade)
+
+  @@index([workerId, revokedAt], map: "worker_credentials_worker_revoked_idx")
+  @@map("worker_credentials")
+}
+
+model WorkerEnrollmentToken {
+  id              String    @id @db.Uuid
+  workspaceId     String    @map("workspace_id") @db.Uuid
+  tokenHash       Bytes     @unique(map: "worker_enrollment_tokens_hash_key") @map("token_hash") @db.ByteA
+  createdByUserId String    @map("created_by_user_id") @db.Uuid
+  expiresAt       DateTime  @map("expires_at") @db.Timestamptz(3)
+  usedAt          DateTime? @map("used_at") @db.Timestamptz(3)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  createdBy       User      @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
+
+  @@index([workspaceId, expiresAt], map: "worker_enrollment_tokens_expiry_idx")
+  @@index([createdByUserId], map: "worker_enrollment_tokens_creator_idx")
+  @@map("worker_enrollment_tokens")
+}
+
+model Device {
+  id                String           @id @db.Uuid
+  workspaceId       String           @map("workspace_id") @db.Uuid
+  workerId          String           @map("worker_id") @db.Uuid
+  name              String           @db.Text
+  adbSerial         String           @map("adb_serial") @db.Text
+  connectionType    ConnectionType   @map("connection_type")
+  ipAddress         String?          @map("ip_address") @db.Inet
+  status            String           @db.Text
+  androidVersion    String?          @map("android_version") @db.Text
+  model             String?          @db.Text
+  shopeeInstalled   Boolean?         @map("shopee_installed")
+  shopeeVersion     String?          @map("shopee_version") @db.Text
+  lastSeenAt        DateTime?        @map("last_seen_at") @db.Timestamptz(3)
+  createdAt         DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+  version           Int              @default(1)
+  workspace         Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  worker            Worker           @relation(fields: [workspaceId, workerId], references: [workspaceId, id], onDelete: Restrict)
+  boundAccounts     ShopeeAccount[]  @relation("BoundAccountDevice")
+  sessions          DeviceSession[]
+  preferredProjects Project[]
+  publishJobs       PublishJob[]
+  publishAttempts   PublishAttempt[]
+  jobLeases         JobLease[]
+  deviceLeases      DeviceLease[]
+
+  @@unique([workspaceId, adbSerial], map: "devices_workspace_adb_serial_key")
+  @@unique([workspaceId, id], map: "devices_workspace_id_id_key")
+  @@unique([workspaceId, workerId, id], map: "devices_workspace_worker_id_key")
+  @@index([workerId, status], map: "devices_worker_status_idx")
+  @@index([workspaceId, lastSeenAt], map: "devices_workspace_last_seen_idx")
+  @@map("devices")
+}
+
+model DeviceSession {
+  id                String         @id @db.Uuid
+  workspaceId       String         @map("workspace_id") @db.Uuid
+  deviceId          String         @map("device_id") @db.Uuid
+  workerId          String         @map("worker_id") @db.Uuid
+  expectedAccountId String?        @map("expected_account_id") @db.Uuid
+  status            String         @db.Text
+  startedAt         DateTime       @map("started_at") @db.Timestamptz(3)
+  lastHeartbeatAt   DateTime       @map("last_heartbeat_at") @db.Timestamptz(3)
+  endedAt           DateTime?      @map("ended_at") @db.Timestamptz(3)
+  endReason         String?        @map("end_reason") @db.Text
+  sanitizedFacts    Json           @default("{}") @map("sanitized_facts") @db.JsonB
+  createdAt         DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+  workspace         Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  device            Device         @relation(fields: [workspaceId, workerId, deviceId], references: [workspaceId, workerId, id], onDelete: Restrict)
+  worker            Worker         @relation(fields: [workspaceId, workerId], references: [workspaceId, id], onDelete: Restrict)
+  expectedAccount   ShopeeAccount? @relation(fields: [workspaceId, expectedAccountId], references: [workspaceId, id], onDelete: Restrict)
+
+  @@unique([workspaceId, id], map: "device_sessions_workspace_id_id_key")
+  @@index([workspaceId, workerId], map: "device_sessions_worker_idx")
+  @@map("device_sessions")
+}
+
+model MediaAsset {
+  id                  String        @id @db.Uuid
+  workspaceId         String        @map("workspace_id") @db.Uuid
+  source              MediaSource
+  originalFilename    String        @map("original_filename") @db.Text
+  storageKey          String        @map("storage_key") @db.Text
+  mimeType            String        @map("mime_type") @db.Text
+  sizeBytes           BigInt        @map("size_bytes") @db.BigInt
+  sha256              Bytes         @db.ByteA
+  status              String        @db.Text
+  durationMs          BigInt?       @map("duration_ms") @db.BigInt
+  width               Int?
+  height              Int?
+  fps                 Decimal?      @db.Decimal(10, 3)
+  bitrateBps          BigInt?       @map("bitrate_bps") @db.BigInt
+  codec               String?       @db.Text
+  audioCodec          String?       @map("audio_codec") @db.Text
+  orientation         String?       @db.Text
+  thumbnailKey        String?       @map("thumbnail_key") @db.Text
+  contentSource       String?       @map("content_source") @db.Text
+  contentOwner        String?       @map("content_owner") @db.Text
+  licenseReference    String?       @map("license_reference") @db.Text
+  notes               String?       @db.Text
+  validationErrorCode String?       @map("validation_error_code") @db.Text
+  createdAt           DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  version             Int           @default(1)
+  workspace           Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  datasetItems        DatasetItem[]
+  projectItems        ProjectItem[]
+  publishJobs         PublishJob[]
+
+  @@unique([workspaceId, sha256], map: "media_assets_workspace_sha256_key")
+  @@unique([workspaceId, storageKey], map: "media_assets_workspace_storage_key_key")
+  @@unique([workspaceId, id], map: "media_assets_workspace_id_id_key")
+  @@index([workspaceId, status, createdAt], map: "media_assets_workspace_status_created_idx")
+  @@index([workspaceId, originalFilename], map: "media_assets_workspace_filename_idx")
+  @@map("media_assets")
+}
+
+model Dataset {
+  id              String        @id @db.Uuid
+  workspaceId     String        @map("workspace_id") @db.Uuid
+  name            String        @db.Text
+  description     String?       @db.Text
+  status          String        @db.Text
+  createdByUserId String        @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  version         Int           @default(1)
+  workspace       Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  createdBy       User          @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
+  items           DatasetItem[]
+  projects        Project[]
+
+  @@unique([workspaceId, name], map: "datasets_workspace_name_key")
+  @@unique([workspaceId, id], map: "datasets_workspace_id_id_key")
+  @@index([createdByUserId], map: "datasets_creator_idx")
+  @@map("datasets")
+}
+
+model DatasetItem {
+  id              String        @id @db.Uuid
+  workspaceId     String        @map("workspace_id") @db.Uuid
+  datasetId       String        @map("dataset_id") @db.Uuid
+  mediaAssetId    String        @map("media_asset_id") @db.Uuid
+  position        Int
+  captionOverride String?       @map("caption_override") @db.Text
+  customFields    Json          @default("{}") @map("custom_fields") @db.JsonB
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  workspace       Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  dataset         Dataset       @relation(fields: [workspaceId, datasetId], references: [workspaceId, id], onDelete: Cascade)
+  mediaAsset      MediaAsset    @relation(fields: [workspaceId, mediaAssetId], references: [workspaceId, id], onDelete: Restrict)
+  projectItems    ProjectItem[]
+
+  @@unique([datasetId, mediaAssetId], map: "dataset_items_dataset_media_key")
+  @@unique([datasetId, position], map: "dataset_items_dataset_position_key")
+  @@unique([workspaceId, id], map: "dataset_items_workspace_id_id_key")
+  @@index([workspaceId, mediaAssetId], map: "dataset_items_media_idx")
+  @@map("dataset_items")
+}
+
+model Schedule {
+  id               String        @id @db.Uuid
+  workspaceId      String        @map("workspace_id") @db.Uuid
+  name             String        @db.Text
+  kind             ScheduleKind
+  timezone         String        @db.Text
+  startLocal       DateTime?     @map("start_local") @db.Timestamp(0)
+  rrule            String?       @db.Text
+  nextRunAt        DateTime?     @map("next_run_at") @db.Timestamptz(3)
+  endAt            DateTime?     @map("end_at") @db.Timestamptz(3)
+  dstGapPolicy     String        @map("dst_gap_policy") @db.Text
+  dstOverlapPolicy String        @map("dst_overlap_policy") @db.Text
+  status           String        @db.Text
+  createdByUserId  String        @map("created_by_user_id") @db.Uuid
+  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  version          Int           @default(1)
+  workspace        Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  createdBy        User          @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
+  projects         Project[]
+  runs             ScheduleRun[]
+
+  @@unique([workspaceId, name], map: "schedules_workspace_name_key")
+  @@unique([workspaceId, id], map: "schedules_workspace_id_id_key")
+  @@index([status, nextRunAt], map: "schedules_status_next_run_idx")
+  @@index([createdByUserId], map: "schedules_creator_idx")
+  @@map("schedules")
+}
+
+model Project {
+  id                     String        @id @db.Uuid
+  workspaceId            String        @map("workspace_id") @db.Uuid
+  datasetId              String        @map("dataset_id") @db.Uuid
+  accountId              String        @map("account_id") @db.Uuid
+  preferredDeviceId      String?       @map("preferred_device_id") @db.Uuid
+  scheduleId             String?       @map("schedule_id") @db.Uuid
+  name                   String        @db.Text
+  status                 String        @db.Text
+  publisherKind          PublisherKind @map("publisher_kind")
+  captionMode            String        @map("caption_mode") @db.Text
+  captionTemplate        String?       @map("caption_template") @db.Text
+  hashtagTemplate        String?       @map("hashtag_template") @db.Text
+  minimumIntervalSeconds Int           @map("minimum_interval_seconds")
+  dailyLimit             Int?          @map("daily_limit")
+  maxAttempts            Int           @map("max_attempts")
+  retryPolicy            Json          @map("retry_policy") @db.JsonB
+  createdByUserId        String        @map("created_by_user_id") @db.Uuid
+  createdAt              DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  version                Int           @default(1)
+  workspace              Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  dataset                Dataset       @relation(fields: [workspaceId, datasetId], references: [workspaceId, id], onDelete: Restrict)
+  account                ShopeeAccount @relation(fields: [workspaceId, accountId], references: [workspaceId, id], onDelete: Restrict)
+  preferredDevice        Device?       @relation(fields: [workspaceId, preferredDeviceId], references: [workspaceId, id], onDelete: Restrict)
+  schedule               Schedule?     @relation(fields: [workspaceId, scheduleId], references: [workspaceId, id], onDelete: Restrict)
+  createdBy              User          @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
+  items                  ProjectItem[]
+  publishJobs            PublishJob[]
+
+  @@unique([workspaceId, name], map: "projects_workspace_name_key")
+  @@unique([workspaceId, id], map: "projects_workspace_id_id_key")
+  @@index([workspaceId, datasetId], map: "projects_dataset_idx")
+  @@index([workspaceId, accountId], map: "projects_account_idx")
+  @@index([workspaceId, preferredDeviceId], map: "projects_preferred_device_idx")
+  @@index([workspaceId, scheduleId], map: "projects_schedule_idx")
+  @@index([createdByUserId], map: "projects_creator_idx")
+  @@map("projects")
+}
+
+model ProjectItem {
+  id            String               @id @db.Uuid
+  workspaceId   String               @map("workspace_id") @db.Uuid
+  projectId     String               @map("project_id") @db.Uuid
+  datasetItemId String               @map("dataset_item_id") @db.Uuid
+  mediaAssetId  String               @map("media_asset_id") @db.Uuid
+  position      Int
+  caption       String?              @db.Text
+  status        String               @db.Text
+  customFields  Json                 @default("{}") @map("custom_fields") @db.JsonB
+  createdAt     DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime             @updatedAt @map("updated_at") @db.Timestamptz(3)
+  workspace     Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  project       Project              @relation(fields: [workspaceId, projectId], references: [workspaceId, id], onDelete: Restrict)
+  datasetItem   DatasetItem          @relation(fields: [workspaceId, datasetItemId], references: [workspaceId, id], onDelete: Restrict)
+  mediaAsset    MediaAsset           @relation(fields: [workspaceId, mediaAssetId], references: [workspaceId, id], onDelete: Restrict)
+  products      ProjectItemProduct[]
+  publishJobs   PublishJob[]
+
+  @@unique([projectId, datasetItemId], map: "project_items_project_dataset_item_key")
+  @@unique([projectId, position], map: "project_items_project_position_key")
+  @@unique([workspaceId, id], map: "project_items_workspace_id_id_key")
+  @@index([workspaceId, datasetItemId], map: "project_items_dataset_item_idx")
+  @@index([workspaceId, mediaAssetId], map: "project_items_media_idx")
+  @@map("project_items")
+}
+
+model ProductReference {
+  id                String               @id @db.Uuid
+  workspaceId       String               @map("workspace_id") @db.Uuid
+  accountId         String               @map("account_id") @db.Uuid
+  displayName       String               @map("display_name") @db.Text
+  operatorReference String?              @map("operator_reference") @db.Text
+  productUrl        String?              @map("product_url") @db.Text
+  sku               String?              @db.Text
+  source            ProductSource
+  metadata          Json                 @default("{}") @db.JsonB
+  status            String               @db.Text
+  createdAt         DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime             @updatedAt @map("updated_at") @db.Timestamptz(3)
+  version           Int                  @default(1)
+  workspace         Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  account           ShopeeAccount        @relation(fields: [workspaceId, accountId], references: [workspaceId, id], onDelete: Restrict)
+  projectItems      ProjectItemProduct[]
+
+  @@unique([workspaceId, id], map: "product_references_workspace_id_id_key")
+  @@index([workspaceId, accountId, displayName], map: "product_references_account_display_idx")
+  @@map("product_references")
+}
+
+model ProjectItemProduct {
+  workspaceId        String           @map("workspace_id") @db.Uuid
+  projectItemId      String           @map("project_item_id") @db.Uuid
+  productReferenceId String           @map("product_reference_id") @db.Uuid
+  position           Int
+  createdAt          DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  workspace          Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  projectItem        ProjectItem      @relation(fields: [workspaceId, projectItemId], references: [workspaceId, id], onDelete: Cascade)
+  productReference   ProductReference @relation(fields: [workspaceId, productReferenceId], references: [workspaceId, id], onDelete: Restrict)
+
+  @@id([projectItemId, productReferenceId])
+  @@unique([projectItemId, position], map: "project_item_products_position_key")
+  @@index([workspaceId, productReferenceId], map: "project_item_products_product_idx")
+  @@map("project_item_products")
+}
+
+model ScheduleRun {
+  id              String       @id @db.Uuid
+  workspaceId     String       @map("workspace_id") @db.Uuid
+  scheduleId      String       @map("schedule_id") @db.Uuid
+  scheduledFor    DateTime     @map("scheduled_for") @db.Timestamptz(3)
+  localOccurrence String       @map("local_occurrence") @db.Text
+  status          String       @db.Text
+  startedAt       DateTime?    @map("started_at") @db.Timestamptz(3)
+  completedAt     DateTime?    @map("completed_at") @db.Timestamptz(3)
+  errorCode       String?      @map("error_code") @db.Text
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  workspace       Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  schedule        Schedule     @relation(fields: [workspaceId, scheduleId], references: [workspaceId, id], onDelete: Restrict)
+  publishJobs     PublishJob[]
+
+  @@unique([scheduleId, scheduledFor, localOccurrence], map: "schedule_runs_occurrence_key")
+  @@unique([workspaceId, id], map: "schedule_runs_workspace_id_id_key")
+  @@map("schedule_runs")
+}
+
+model PublishJob {
+  id                String           @id @db.Uuid
+  workspaceId       String           @map("workspace_id") @db.Uuid
+  projectId         String           @map("project_id") @db.Uuid
+  projectItemId     String           @map("project_item_id") @db.Uuid
+  accountId         String           @map("account_id") @db.Uuid
+  mediaAssetId      String           @map("media_asset_id") @db.Uuid
+  deviceId          String?          @map("device_id") @db.Uuid
+  scheduleRunId     String?          @map("schedule_run_id") @db.Uuid
+  retryOfJobId      String?          @map("retry_of_job_id") @db.Uuid
+  publisherKind     PublisherKind    @map("publisher_kind")
+  status            PublishJobStatus
+  priority          JobPriority
+  executionSlotId   String           @map("execution_slot_id") @db.Uuid
+  scheduledFor      DateTime         @map("scheduled_for") @db.Timestamptz(3)
+  availableAt       DateTime         @map("available_at") @db.Timestamptz(3)
+  idempotencyKey    String           @map("idempotency_key") @db.Char(64)
+  attemptCount      Int              @default(0) @map("attempt_count")
+  maxAttempts       Int              @map("max_attempts")
+  cancelRequestedAt DateTime?        @map("cancel_requested_at") @db.Timestamptz(3)
+  startedAt         DateTime?        @map("started_at") @db.Timestamptz(3)
+  completedAt       DateTime?        @map("completed_at") @db.Timestamptz(3)
+  lastErrorCode     String?          @map("last_error_code") @db.Text
+  lastErrorCategory ErrorCategory?   @map("last_error_category")
+  recoveryNote      String?          @map("recovery_note") @db.Text
+  createdByUserId   String           @map("created_by_user_id") @db.Uuid
+  createdAt         DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+  version           Int              @default(1)
+  workspace         Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  project           Project          @relation(fields: [workspaceId, projectId], references: [workspaceId, id], onDelete: Restrict)
+  projectItem       ProjectItem      @relation(fields: [workspaceId, projectItemId], references: [workspaceId, id], onDelete: Restrict)
+  account           ShopeeAccount    @relation(fields: [workspaceId, accountId], references: [workspaceId, id], onDelete: Restrict)
+  mediaAsset        MediaAsset       @relation(fields: [workspaceId, mediaAssetId], references: [workspaceId, id], onDelete: Restrict)
+  device            Device?          @relation(fields: [workspaceId, deviceId], references: [workspaceId, id], onDelete: Restrict)
+  scheduleRun       ScheduleRun?     @relation(fields: [workspaceId, scheduleRunId], references: [workspaceId, id], onDelete: Restrict)
+  retryOf           PublishJob?      @relation("JobRetry", fields: [workspaceId, retryOfJobId], references: [workspaceId, id], onDelete: Restrict)
+  retries           PublishJob[]     @relation("JobRetry")
+  createdBy         User             @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
+  attempts          PublishAttempt[]
+  results           PublishResult[]
+  jobLeases         JobLease[]
+  deviceLeases      DeviceLease[]
+  events            JobEvent[]
+
+  @@unique([workspaceId, idempotencyKey], map: "publish_jobs_workspace_idempotency_key")
+  @@unique([workspaceId, id], map: "publish_jobs_workspace_id_id_key")
+  @@index([status, availableAt, priority, workspaceId], map: "publish_jobs_queue_idx")
+  @@index([workspaceId, createdAt], map: "publish_jobs_workspace_created_idx")
+  @@index([workspaceId, projectId, status], map: "publish_jobs_project_status_idx")
+  @@index([workspaceId, accountId, status], map: "publish_jobs_account_status_idx")
+  @@index([workspaceId, projectItemId], map: "publish_jobs_project_item_idx")
+  @@index([workspaceId, mediaAssetId], map: "publish_jobs_media_idx")
+  @@index([workspaceId, deviceId], map: "publish_jobs_device_idx")
+  @@index([workspaceId, scheduleRunId], map: "publish_jobs_schedule_run_idx")
+  @@index([workspaceId, retryOfJobId], map: "publish_jobs_retry_of_idx")
+  @@index([createdByUserId], map: "publish_jobs_creator_idx")
+  @@map("publish_jobs")
+}
+
+model PublishAttempt {
+  id                  String         @id @db.Uuid
+  workspaceId         String         @map("workspace_id") @db.Uuid
+  jobId               String         @map("job_id") @db.Uuid
+  workerId            String         @map("worker_id") @db.Uuid
+  deviceId            String         @map("device_id") @db.Uuid
+  attemptNumber       Int            @map("attempt_number")
+  status              String         @db.Text
+  startedAt           DateTime       @map("started_at") @db.Timestamptz(3)
+  submittedAt         DateTime?      @map("submitted_at") @db.Timestamptz(3)
+  endedAt             DateTime?      @map("ended_at") @db.Timestamptz(3)
+  errorCode           String?        @map("error_code") @db.Text
+  errorCategory       ErrorCategory? @map("error_category")
+  sanitizedMessage    String?        @map("sanitized_message") @db.Text
+  durationMs          BigInt?        @map("duration_ms") @db.BigInt
+  diagnosticBundleKey String?        @map("diagnostic_bundle_key") @db.Text
+  createdAt           DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+  workspace           Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  job                 PublishJob     @relation(fields: [workspaceId, jobId], references: [workspaceId, id], onDelete: Restrict)
+  worker              Worker         @relation(fields: [workspaceId, workerId], references: [workspaceId, id], onDelete: Restrict)
+  device              Device         @relation(fields: [workspaceId, workerId, deviceId], references: [workspaceId, workerId, id], onDelete: Restrict)
+  result              PublishResult?
+  events              JobEvent[]
+
+  @@unique([jobId, attemptNumber], map: "publish_attempts_job_number_key")
+  @@unique([workspaceId, id], map: "publish_attempts_workspace_id_id_key")
+  @@unique([workspaceId, jobId, id], map: "publish_attempts_workspace_job_id_key")
+  @@index([workspaceId, workerId], map: "publish_attempts_worker_idx")
+  @@index([workspaceId, deviceId], map: "publish_attempts_device_idx")
+  @@map("publish_attempts")
+}
+
+model PublishResult {
+  id                String         @id @db.Uuid
+  workspaceId       String         @map("workspace_id") @db.Uuid
+  jobId             String         @map("job_id") @db.Uuid
+  attemptId         String         @unique(map: "publish_results_attempt_key") @map("attempt_id") @db.Uuid
+  outcome           String         @db.Text
+  externalReference String?        @map("external_reference") @db.Text
+  statusValue       String?        @map("status_value") @db.Text
+  publishedAt       DateTime?      @map("published_at") @db.Timestamptz(3)
+  verifiedAt        DateTime?      @map("verified_at") @db.Timestamptz(3)
+  sanitizedMetadata Json           @default("{}") @map("sanitized_metadata") @db.JsonB
+  createdAt         DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+  workspace         Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  job               PublishJob     @relation(fields: [workspaceId, jobId], references: [workspaceId, id], onDelete: Restrict)
+  attempt           PublishAttempt @relation(fields: [workspaceId, jobId, attemptId], references: [workspaceId, jobId, id], onDelete: Restrict)
+
+  @@unique([workspaceId, id], map: "publish_results_workspace_id_id_key")
+  @@unique([workspaceId, jobId, attemptId], map: "publish_results_workspace_job_attempt_key")
+  @@index([workspaceId, jobId], map: "publish_results_job_idx")
+  @@map("publish_results")
+}
+
+model JobLease {
+  id             String        @id @db.Uuid
+  workspaceId    String        @map("workspace_id") @db.Uuid
+  jobId          String        @map("job_id") @db.Uuid
+  workerId       String        @map("worker_id") @db.Uuid
+  deviceId       String        @map("device_id") @db.Uuid
+  leaseTokenHash Bytes         @unique(map: "job_leases_token_hash_key") @map("lease_token_hash") @db.ByteA
+  status         LeaseStatus
+  offeredAt      DateTime      @map("offered_at") @db.Timestamptz(3)
+  ackDeadlineAt  DateTime      @map("ack_deadline_at") @db.Timestamptz(3)
+  expiresAt      DateTime      @map("expires_at") @db.Timestamptz(3)
+  acknowledgedAt DateTime?     @map("acknowledged_at") @db.Timestamptz(3)
+  lastRenewedAt  DateTime?     @map("last_renewed_at") @db.Timestamptz(3)
+  releasedAt     DateTime?     @map("released_at") @db.Timestamptz(3)
+  version        Int           @default(1)
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  workspace      Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  job            PublishJob    @relation(fields: [workspaceId, jobId], references: [workspaceId, id], onDelete: Restrict)
+  worker         Worker        @relation(fields: [workspaceId, workerId], references: [workspaceId, id], onDelete: Restrict)
+  device         Device        @relation(fields: [workspaceId, workerId, deviceId], references: [workspaceId, workerId, id], onDelete: Restrict)
+  deviceLeases   DeviceLease[]
+
+  @@unique([workspaceId, id], map: "job_leases_workspace_id_id_key")
+  @@unique([workspaceId, jobId, id], map: "job_leases_workspace_job_id_key")
+  @@unique([workspaceId, jobId, workerId, deviceId, id], map: "job_leases_assignment_id_key")
+  @@index([workspaceId, workerId], map: "job_leases_worker_idx")
+  @@index([workspaceId, deviceId], map: "job_leases_device_idx")
+  @@map("job_leases")
+}
+
+model DeviceLease {
+  id             String      @id @db.Uuid
+  workspaceId    String      @map("workspace_id") @db.Uuid
+  deviceId       String      @map("device_id") @db.Uuid
+  workerId       String      @map("worker_id") @db.Uuid
+  jobId          String      @map("job_id") @db.Uuid
+  jobLeaseId     String      @map("job_lease_id") @db.Uuid
+  status         LeaseStatus
+  offeredAt      DateTime    @map("offered_at") @db.Timestamptz(3)
+  ackDeadlineAt  DateTime    @map("ack_deadline_at") @db.Timestamptz(3)
+  expiresAt      DateTime    @map("expires_at") @db.Timestamptz(3)
+  acknowledgedAt DateTime?   @map("acknowledged_at") @db.Timestamptz(3)
+  lastRenewedAt  DateTime?   @map("last_renewed_at") @db.Timestamptz(3)
+  releasedAt     DateTime?   @map("released_at") @db.Timestamptz(3)
+  version        Int         @default(1)
+  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  workspace      Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  device         Device      @relation(fields: [workspaceId, workerId, deviceId], references: [workspaceId, workerId, id], onDelete: Restrict)
+  worker         Worker      @relation(fields: [workspaceId, workerId], references: [workspaceId, id], onDelete: Restrict)
+  job            PublishJob  @relation(fields: [workspaceId, jobId], references: [workspaceId, id], onDelete: Restrict)
+  jobLease       JobLease    @relation(fields: [workspaceId, jobId, workerId, deviceId, jobLeaseId], references: [workspaceId, jobId, workerId, deviceId, id], onDelete: Restrict)
+
+  @@unique([workspaceId, id], map: "device_leases_workspace_id_id_key")
+  @@index([workspaceId, workerId], map: "device_leases_worker_idx")
+  @@index([workspaceId, jobId], map: "device_leases_job_idx")
+  @@index([workspaceId, jobId, jobLeaseId], map: "device_leases_job_lease_idx")
+  @@map("device_leases")
+}
+
+model JobEvent {
+  id          String            @id @db.Uuid
+  workspaceId String            @map("workspace_id") @db.Uuid
+  jobId       String            @map("job_id") @db.Uuid
+  attemptId   String?           @map("attempt_id") @db.Uuid
+  sequence    BigInt            @db.BigInt
+  eventType   String            @map("event_type") @db.Text
+  fromStatus  PublishJobStatus? @map("from_status")
+  toStatus    PublishJobStatus? @map("to_status")
+  actorType   String            @map("actor_type") @db.Text
+  actorId     String?           @map("actor_id") @db.Uuid
+  payload     Json              @db.JsonB
+  createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  workspace   Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  job         PublishJob        @relation(fields: [workspaceId, jobId], references: [workspaceId, id], onDelete: Restrict)
+  attempt     PublishAttempt?   @relation(fields: [workspaceId, jobId, attemptId], references: [workspaceId, jobId, id], onDelete: Restrict)
+
+  @@unique([jobId, sequence], map: "job_events_job_sequence_key")
+  @@index([workspaceId, createdAt], map: "job_events_workspace_created_idx")
+  @@index([jobId, createdAt], map: "job_events_job_created_idx")
+  @@index([workspaceId, jobId, attemptId], map: "job_events_attempt_idx")
+  @@map("job_events")
+}
+
+model AuditLog {
+  id             String        @id @db.Uuid
+  workspaceId    String?       @map("workspace_id") @db.Uuid
+  organizationId String?       @map("organization_id") @db.Uuid
+  actorType      String        @map("actor_type") @db.Text
+  actorId        String        @map("actor_id") @db.Uuid
+  action         String        @db.Text
+  resourceType   String        @map("resource_type") @db.Text
+  resourceId     String        @map("resource_id") @db.Uuid
+  requestId      String        @map("request_id") @db.Uuid
+  beforeData     Json?         @map("before_data") @db.JsonB
+  afterData      Json?         @map("after_data") @db.JsonB
+  ipPrefix       String?       @map("ip_prefix") @db.Text
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  workspace      Workspace?    @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, createdAt], map: "audit_logs_workspace_created_idx")
+  @@index([actorId, createdAt], map: "audit_logs_actor_created_idx")
+  @@index([resourceType, resourceId], map: "audit_logs_resource_idx")
+  @@map("audit_logs")
+}
+
+model OutboxEvent {
+  id            String     @id @db.Uuid
+  workspaceId   String?    @map("workspace_id") @db.Uuid
+  topic         String     @db.Text
+  aggregateType String     @map("aggregate_type") @db.Text
+  aggregateId   String     @map("aggregate_id") @db.Uuid
+  payload       Json       @db.JsonB
+  createdAt     DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  availableAt   DateTime   @map("available_at") @db.Timestamptz(3)
+  publishedAt   DateTime?  @map("published_at") @db.Timestamptz(3)
+  attemptCount  Int        @default(0) @map("attempt_count")
+  lastError     String?    @map("last_error") @db.Text
+  workspace     Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+
+  @@index([publishedAt, availableAt], map: "outbox_events_dispatch_idx")
+  @@index([workspaceId], map: "outbox_events_workspace_idx")
+  @@map("outbox_events")
+}
+
+model WorkspaceDispatchState {
+  workspaceId      String    @id @map("workspace_id") @db.Uuid
+  lastDispatchedAt DateTime? @map("last_dispatched_at") @db.Timestamptz(3)
+  dispatchCount    BigInt    @default(0) @map("dispatch_count") @db.BigInt
+  version          Int       @default(1)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  workspace        Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@map("workspace_dispatch_state")
+}
+
+model SystemSetting {
+  key             String   @id @db.Text
+  value           Json     @db.JsonB
+  schemaVersion   Int      @map("schema_version")
+  updatedByUserId String   @map("updated_by_user_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy       User     @relation(fields: [updatedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([updatedByUserId], map: "system_settings_updater_idx")
+  @@map("system_settings")
+}
+
+model WorkspaceSetting {
+  workspaceId     String    @map("workspace_id") @db.Uuid
+  key             String    @db.Text
+  value           Json      @db.JsonB
+  schemaVersion   Int       @map("schema_version")
+  updatedByUserId String    @map("updated_by_user_id") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  updatedBy       User      @relation(fields: [updatedByUserId], references: [id], onDelete: Restrict)
+
+  @@id([workspaceId, key])
+  @@index([updatedByUserId], map: "workspace_settings_updater_idx")
+  @@map("workspace_settings")
+}

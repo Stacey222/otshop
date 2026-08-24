@@ -1,0 +1,24 @@
+{
+  "name": "@otshop/database",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "db:generate": "prisma generate",
+    "db:migrate:deploy": "prisma migrate deploy",
+    "db:migrate:deploy:test": "node scripts/run-test-database-command.mjs migrate deploy",
+    "db:validate": "node scripts/run-prisma-command.mjs validate",
+    "test:database": "node scripts/run-test-database-tests.mjs",
+    "typecheck": "tsc --project tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@otshop/shared": "workspace:*",
+    "@prisma/client": "6.19.1"
+  },
+  "devDependencies": {
+    "prisma": "6.19.1"
+  }
+}

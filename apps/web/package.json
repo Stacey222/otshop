@@ -1,0 +1,24 @@
+{
+  "name": "@otshop/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "next build",
+    "dev": "next dev",
+    "start": "next start",
+    "typecheck": "next typegen && tsc --project tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@otshop/config": "workspace:*",
+    "@otshop/database": "workspace:*",
+    "@otshop/shared": "workspace:*",
+    "argon2": "0.44.0",
+    "next": "16.3.1",
+    "pino": "10.3.1",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "server-only": "0.0.1",
+    "zod": "4.4.3"
+  }
+}

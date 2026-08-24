@@ -1,0 +1,42 @@
+{
+  "name": "otshop",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Shopee Video automation control plane and Android worker monorepo",
+  "scripts": {
+    "auth:bootstrap": "tsx apps/web/scripts/bootstrap-super-admin.ts",
+    "build": "pnpm --filter @otshop/web build",
+    "db:generate": "pnpm --filter @otshop/database db:generate",
+    "db:migrate:deploy": "pnpm --filter @otshop/database db:migrate:deploy",
+    "db:migrate:deploy:test": "pnpm --filter @otshop/database db:migrate:deploy:test",
+    "db:validate": "pnpm --filter @otshop/database db:validate",
+    "dev": "pnpm --filter @otshop/web dev",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint .",
+    "schema:check": "vitest run packages/shared/src/json-schema.test.ts",
+    "schema:generate": "vitest run packages/shared/src/json-schema.test.ts --update",
+    "postinstall": "pnpm db:generate",
+    "start": "pnpm --filter @otshop/web start",
+    "test": "vitest run",
+    "test:database": "pnpm db:migrate:deploy:test && pnpm --filter @otshop/database test:database",
+    "test:watch": "vitest",
+    "typecheck": "pnpm -r --if-present typecheck"
+  },
+  "packageManager": "pnpm@11.22.0",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.1",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.4",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.3.1",
+    "prettier": "3.9.6",
+    "tsx": "4.20.6",
+    "typescript": "5.9.3",
+    "vitest": "4.1.11"
+  }
+}

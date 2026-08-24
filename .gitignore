@@ -1,0 +1,40 @@
+# Dependencies and build output
+node_modules/
+.next/
+dist/
+build/
+coverage/
+**/next-env.d.ts
+*.tsbuildinfo
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+*.local
+*.pem
+*.key
+
+# Runtime data
+storage/
+uploads/
+diagnostics/
+logs/
+*.log
+
+# Editors and operating systems
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# User-supplied research archive; retain locally but never commit
+/tutor.zip

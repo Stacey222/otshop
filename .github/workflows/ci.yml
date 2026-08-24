@@ -1,0 +1,94 @@
+name: Phase 2 CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify Phase 2 foundation
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: otshop_ci_test
+          POSTGRES_USER: otshop_ci
+          POSTGRES_PASSWORD: otshop_ci_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U otshop_ci -d otshop_ci_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://otshop_ci:otshop_ci_password@127.0.0.1:5432/otshop_ci_test?schema=public
+      TEST_DATABASE_URL: postgresql://otshop_ci:otshop_ci_password@127.0.0.1:5432/otshop_ci_test?schema=public
+      APP_URL: http://localhost:3000
+      STORAGE_ROOT: ./storage
+      LOG_LEVEL: info
+      APP_VERSION: ci
+      ENABLE_SHOPEE_ANDROID: "false"
+      ENABLE_SHOPEE_OFFICIAL_API: "false"
+      ENABLE_REAL_PUBLISH: "false"
+      ENABLE_SCHEDULER: "false"
+      ENABLE_WORKER_PROTOCOL: "false"
+      ALLOW_REAL_PUBLISH: "false"
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.22.0
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: pnpm
+
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check formatting
+        run: pnpm format:check
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Type-check
+        run: pnpm typecheck
+
+      - name: Validate Prisma schema
+        run: pnpm db:validate
+
+      - name: Check shared contract schema
+        run: pnpm schema:check
+
+      - name: Run deterministic tests
+        run: pnpm test
+
+      - name: Verify generated contract artifact
+        run: |
+          pnpm schema:generate
+          git diff --exit-code -- packages/shared/schema/contracts.schema.json
+
+      - name: Run empty-database migrations and integration tests
+        run: pnpm test:database
+
+      - name: Build production application
+        run: pnpm build
+
+      - name: Verify commands left tracked files unchanged
+        run: git diff --exit-code

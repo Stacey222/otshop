@@ -1,0 +1,485 @@
+:root {
+  color-scheme: dark;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  background: #07111f;
+  color: #e8eef7;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  background:
+    radial-gradient(circle at top right, rgb(22 163 174 / 18%), transparent 34rem),
+    linear-gradient(145deg, #07111f, #0b1727 58%, #0a1321);
+}
+
+main {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 2rem;
+}
+
+.panel {
+  width: min(100%, 48rem);
+  padding: clamp(2rem, 6vw, 4.5rem);
+  border: 1px solid rgb(148 163 184 / 20%);
+  border-radius: 1.5rem;
+  background: rgb(15 29 47 / 82%);
+  box-shadow: 0 2rem 6rem rgb(0 0 0 / 28%);
+}
+
+.eyebrow {
+  margin: 0 0 1rem;
+  color: #5eead4;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+h1 {
+  max-width: 16ch;
+  margin: 0;
+  font-size: clamp(2.25rem, 7vw, 4.5rem);
+  line-height: 0.98;
+  letter-spacing: -0.045em;
+}
+
+.summary {
+  max-width: 60ch;
+  margin: 1.75rem 0 0;
+  color: #b6c3d5;
+  font-size: 1.05rem;
+  line-height: 1.7;
+}
+
+.status {
+  display: inline-flex;
+  gap: 0.6rem;
+  align-items: center;
+  margin-top: 2rem;
+  padding: 0.7rem 0.95rem;
+  border: 1px solid rgb(94 234 212 / 24%);
+  border-radius: 999px;
+  color: #ccfbf1;
+  background: rgb(19 78 74 / 28%);
+  font-size: 0.9rem;
+}
+
+.status::before {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: #2dd4bf;
+  content: "";
+}
+
+.auth-panel h1,
+.panel-header h1 {
+  font-size: clamp(2rem, 5vw, 3.4rem);
+}
+
+.auth-form {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 2rem;
+}
+
+input {
+  width: 100%;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid #475569;
+  border-radius: 0.65rem;
+  color: inherit;
+  background: #07111f;
+  font: inherit;
+}
+
+button,
+.empty-state a,
+.status-grid a {
+  display: inline-flex;
+  justify-content: center;
+  padding: 0.8rem 1rem;
+  border: 1px solid #2dd4bf;
+  border-radius: 0.65rem;
+  color: #052e2b;
+  background: #5eead4;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible {
+  outline: 3px solid #fbbf24;
+  outline-offset: 3px;
+}
+
+.secondary-button {
+  color: #ccfbf1;
+  background: transparent;
+}
+
+.form-error {
+  color: #fecaca;
+}
+
+.panel-header {
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.workspace-list,
+.status-grid {
+  display: grid;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.workspace-card,
+.empty-state,
+.status-grid > div {
+  padding: 1rem;
+  border: 1px solid rgb(148 163 184 / 20%);
+  border-radius: 0.8rem;
+  background: rgb(7 17 31 / 55%);
+}
+
+.workspace-card {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.workspace-card h2,
+.workspace-card p {
+  margin: 0;
+}
+
+.workspace-card p,
+.status-grid span {
+  color: #b6c3d5;
+}
+
+.status-grid > div {
+  display: flex;
+  justify-content: space-between;
+}
+
+.app-shell {
+  display: grid;
+  min-height: 100vh;
+  grid-template-areas:
+    "header header"
+    "sidebar content";
+  grid-template-columns: minmax(14rem, 18rem) 1fr;
+  grid-template-rows: auto 1fr;
+}
+
+.app-header {
+  display: flex;
+  grid-area: header;
+  gap: 2rem;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem clamp(1rem, 4vw, 2.5rem);
+  border-bottom: 1px solid rgb(148 163 184 / 20%);
+  background: rgb(7 17 31 / 92%);
+}
+
+.app-header p,
+.app-header span {
+  display: block;
+  margin: 0.2rem 0 0;
+  color: #94a3b8;
+  font-size: 0.85rem;
+}
+
+.brand {
+  color: #f8fafc;
+  font-size: 1.25rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.user-context {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  text-align: right;
+}
+
+.app-sidebar {
+  display: flex;
+  grid-area: sidebar;
+  flex-direction: column;
+  gap: 2rem;
+  justify-content: space-between;
+  padding: 1.5rem;
+  border-right: 1px solid rgb(148 163 184 / 20%);
+  background: rgb(11 23 39 / 78%);
+}
+
+.app-sidebar nav {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.app-sidebar nav a,
+.nav-unavailable {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.75rem;
+  border-radius: 0.55rem;
+  color: #dbeafe;
+  text-decoration: none;
+}
+
+.app-sidebar nav a:hover {
+  background: rgb(45 212 191 / 12%);
+}
+
+.nav-unavailable {
+  color: #64748b;
+}
+
+.nav-unavailable small {
+  align-self: center;
+  font-size: 0.65rem;
+}
+
+.workspace-context {
+  display: grid;
+  gap: 0.45rem;
+  padding: 1rem;
+  border: 1px solid rgb(148 163 184 / 20%);
+  border-radius: 0.75rem;
+}
+
+.workspace-context h2,
+.workspace-context p {
+  margin: 0;
+}
+
+.workspace-context h2 {
+  color: #94a3b8;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.workspace-context span {
+  color: #94a3b8;
+  font-size: 0.82rem;
+}
+
+.role-badge {
+  width: fit-content;
+  margin-top: 0.3rem;
+  padding: 0.25rem 0.45rem;
+  border-radius: 999px;
+  color: #99f6e4 !important;
+  background: rgb(19 78 74 / 45%);
+}
+
+.app-content {
+  display: block;
+  grid-area: content;
+  min-width: 0;
+  min-height: auto;
+  padding: clamp(1.5rem, 5vw, 4rem);
+}
+
+.app-content > section {
+  width: min(100%, 70rem);
+}
+
+.app-content h1,
+.error-state h1 {
+  max-width: none;
+  font-size: clamp(2rem, 5vw, 3.5rem);
+}
+
+.page-summary {
+  max-width: 60rem;
+  color: #b6c3d5;
+  line-height: 1.7;
+}
+
+.feature-notice {
+  width: fit-content;
+  margin: 0 0 2rem;
+  padding: 0.55rem 0.8rem;
+  border: 1px solid rgb(251 191 36 / 25%);
+  border-radius: 999px;
+  color: #fde68a;
+  background: rgb(120 53 15 / 24%);
+  font-size: 0.85rem;
+}
+
+.empty-state-grid {
+  display: grid;
+  gap: 1rem;
+  margin-top: 2rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.empty-state-grid article,
+.publisher-status,
+.system-status,
+.error-state {
+  padding: 1.25rem;
+  border: 1px solid rgb(148 163 184 / 20%);
+  border-radius: 0.8rem;
+  background: rgb(7 17 31 / 55%);
+}
+
+.empty-state-grid h2,
+.empty-state-grid p {
+  margin: 0 0 0.6rem;
+}
+
+.empty-state-grid span {
+  color: #94a3b8;
+  font-size: 0.85rem;
+}
+
+.system-status {
+  margin-top: 1rem;
+}
+
+.publisher-status {
+  margin-top: 1rem;
+}
+
+.publisher-status h2,
+.publisher-status p {
+  margin-top: 0;
+}
+
+.publisher-status ul {
+  display: grid;
+  gap: 0.65rem;
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.publisher-status li {
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  padding-top: 0.65rem;
+  border-top: 1px solid rgb(148 163 184 / 15%);
+}
+
+.publisher-status .available {
+  color: #5eead4;
+}
+
+.publisher-status .unavailable {
+  color: #94a3b8;
+}
+
+.system-status h2 {
+  margin-top: 0;
+}
+
+.system-status dl,
+.system-status dl div {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.system-status dl div {
+  grid-template-columns: 1fr auto;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgb(148 163 184 / 15%);
+}
+
+.system-status dd {
+  margin: 0;
+  color: #5eead4;
+}
+
+.standalone-error {
+  min-height: 100vh;
+}
+
+.error-state {
+  width: min(100%, 48rem);
+}
+
+.error-state p {
+  color: #b6c3d5;
+}
+
+.error-state a {
+  color: #5eead4;
+}
+
+.request-reference code {
+  overflow-wrap: anywhere;
+  color: #f8fafc;
+}
+
+@media (width <= 48rem) {
+  .app-shell {
+    grid-template-areas:
+      "header"
+      "sidebar"
+      "content";
+    grid-template-columns: 1fr;
+  }
+
+  .app-header,
+  .user-context {
+    align-items: flex-start;
+  }
+
+  .app-header {
+    flex-direction: column;
+  }
+
+  .user-context {
+    width: 100%;
+    justify-content: space-between;
+    text-align: left;
+  }
+
+  .app-sidebar {
+    border-right: 0;
+    border-bottom: 1px solid rgb(148 163 184 / 20%);
+  }
+
+  .app-sidebar nav {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .empty-state-grid {
+    grid-template-columns: 1fr;
+  }
+}
