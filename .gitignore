@@ -25,6 +25,8 @@ __pycache__/
 
 # Runtime data
 storage/
+!apps/web/src/infrastructure/storage/
+!apps/web/src/infrastructure/storage/**
 uploads/
 diagnostics/
 logs/
