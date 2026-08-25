@@ -61,7 +61,7 @@ const datasetUsable = async (tx: Transaction, workspaceId: string, datasetId: st
 
 const accountExists = async (tx: Transaction, workspaceId: string, accountId: string | null) =>
   accountId === null ||
-  (await tx.shopeeAccount.count({ where: { id: accountId, workspaceId } })) === 1;
+  (await tx.shopeeAccount.count({ where: { id: accountId, workspaceId, status: "ACTIVE" } })) === 1;
 
 const postingWindowValid = (project: ProjectWithDataset): boolean => {
   if (

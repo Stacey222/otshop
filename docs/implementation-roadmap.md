@@ -44,6 +44,8 @@ Gate: invalid/missing/duplicate media cases pass; source files are never overwri
 
 Implement projects, reusable caption templates with constrained variables, product references, per-item mappings, retry/rate profiles, and a pre-flight readiness service. Add mock-only dry-run configuration.
 
+Slice 4.1 reuses the canonical ShopeeAccount and ProductReference tables for local workspace-owned ACTIVE/ARCHIVED configuration, credential-free account selection, syntactically validated but unverified operator product references, bounded APIs, and optimistic concurrency. Project-level defaults, ProjectItem product assignment, connectivity, scraping, scheduling, jobs, workers, Android, Shopee automation, and publishing remain separately gated.
+
 Gate: template escaping, tenant authorization, configuration validation, pause/resume rules, and readiness reports are tested.
 
 ## Phase 5 — Job engine

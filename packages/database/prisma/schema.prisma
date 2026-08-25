@@ -325,6 +325,7 @@ model ShopeeAccount {
   @@unique([workspaceId, displayName], map: "shopee_accounts_workspace_display_name_key")
   @@unique([workspaceId, id], map: "shopee_accounts_workspace_id_id_key")
   @@index([workspaceId, boundDeviceId], map: "shopee_accounts_bound_device_idx")
+  @@index([workspaceId, status, createdAt], map: "shopee_accounts_workspace_status_created_idx")
   @@map("shopee_accounts")
 }
 
@@ -706,6 +707,7 @@ model ProductReference {
 
   @@unique([workspaceId, id], map: "product_references_workspace_id_id_key")
   @@index([workspaceId, accountId, displayName], map: "product_references_account_display_idx")
+  @@index([workspaceId, status, createdAt], map: "product_references_workspace_status_created_idx")
   @@map("product_references")
 }
 

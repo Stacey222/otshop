@@ -24,6 +24,14 @@ import {
   ProjectConflictError,
   ProjectNotFoundError,
 } from "@/application/projects/project-errors";
+import {
+  ShopeeAccountArchivedError,
+  ShopeeAccountNotFoundError,
+} from "@/application/accounts/account-errors";
+import {
+  AffiliateProductConflictError,
+  AffiliateProductNotFoundError,
+} from "@/application/products/affiliate-product-errors";
 
 import { errorResponse, mapErrorToSafeHttp } from "./api-response";
 
@@ -73,6 +81,13 @@ describe("safe API error boundary", () => {
     expect(mapErrorToSafeHttp(new ProjectNotFoundError())).toMatchObject({ status: 404 });
     expect(mapErrorToSafeHttp(new ProjectArchivedError())).toMatchObject({ status: 409 });
     expect(mapErrorToSafeHttp(new ProjectConflictError())).toMatchObject({ status: 409 });
+  });
+
+  it("maps local account and affiliate product errors without persistence details", () => {
+    expect(mapErrorToSafeHttp(new ShopeeAccountNotFoundError())).toMatchObject({ status: 404 });
+    expect(mapErrorToSafeHttp(new ShopeeAccountArchivedError())).toMatchObject({ status: 409 });
+    expect(mapErrorToSafeHttp(new AffiliateProductNotFoundError())).toMatchObject({ status: 404 });
+    expect(mapErrorToSafeHttp(new AffiliateProductConflictError())).toMatchObject({ status: 409 });
   });
 
   it("maps stable error names across production bundle boundaries", () => {

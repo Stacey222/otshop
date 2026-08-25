@@ -149,14 +149,14 @@ beforeAll(async () => {
         workspaceId: tenantA.workspaceId,
         displayName: "Future account A",
         countryCode: "ID",
-        status: "UNVERIFIED",
+        status: "ACTIVE",
       },
       {
         id: accountB,
         workspaceId: tenantB.workspaceId,
         displayName: "Future account B",
         countryCode: "ID",
-        status: "UNVERIFIED",
+        status: "ACTIVE",
       },
     ],
   });

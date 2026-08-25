@@ -50,6 +50,8 @@ export function mapErrorToSafeHttp(error: unknown): SafeHttpError {
       "MEDIA_BATCH_NOT_FOUND",
       "MEDIA_NOT_FOUND",
       "PROJECT_NOT_FOUND",
+      "SHOPEE_ACCOUNT_NOT_FOUND",
+      "AFFILIATE_PRODUCT_NOT_FOUND",
     ].includes(applicationError.data.code)
       ? 404
       : [
@@ -68,6 +70,11 @@ export function mapErrorToSafeHttp(error: unknown): SafeHttpError {
             "PROJECT_INVALID_ACCOUNT",
             "PROJECT_INVALID_DATASET",
             "PROJECT_NOT_CONFIGURABLE",
+            "SHOPEE_ACCOUNT_ARCHIVED",
+            "SHOPEE_ACCOUNT_CONFLICT",
+            "AFFILIATE_PRODUCT_ARCHIVED",
+            "AFFILIATE_PRODUCT_CONFLICT",
+            "INVALID_AFFILIATE_PRODUCT_REFERENCE",
             "THUMBNAIL_GENERATION_IN_PROGRESS",
           ].includes(applicationError.data.code)
         ? 409

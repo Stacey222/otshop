@@ -76,6 +76,15 @@ const projectConfigurationMigration = readFileSync(
   ),
   "utf8",
 );
+const accountProductConfigurationMigration = readFileSync(
+  fileURLToPath(
+    new URL(
+      "../prisma/migrations/20260825223000_account_product_configuration_foundation/migration.sql",
+      import.meta.url,
+    ),
+  ),
+  "utf8",
+);
 const developerGuide = readFileSync(
   fileURLToPath(new URL("../../../docs/architecture/database-developer-guide.md", import.meta.url)),
   "utf8",
@@ -168,6 +177,18 @@ describe("database contract drift protection", () => {
     expect(projectConfigurationMigration).toContain('"projects_status_check"');
     expect(projectConfigurationMigration).toContain('"daily_target" BETWEEN 1 AND 50');
     expect(projectConfigurationMigration).toContain('"projects_posting_window_check"');
+    expect(accountProductConfigurationMigration).toContain('"shopee_accounts_status_check"');
+    expect(accountProductConfigurationMigration).toContain('"product_references_status_check"');
+    expect(accountProductConfigurationMigration).toContain(
+      '"product_references_local_reference_check"',
+    );
+    expect(accountProductConfigurationMigration).toContain("SET \"status\" = 'ARCHIVED'");
+    expect(accountProductConfigurationMigration).toContain(
+      "WHERE \"status\" IN ('UNVERIFIED', 'CONFIGURED')",
+    );
+    expect(accountProductConfigurationMigration).not.toMatch(
+      /password|cookie|otp|access_token|refresh_token/iu,
+    );
   });
 
   it("keeps the developer-guide model inventories synchronized with Prisma", () => {

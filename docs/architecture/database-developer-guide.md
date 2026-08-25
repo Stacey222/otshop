@@ -83,7 +83,7 @@ The arrows express business flow, not always foreign-key direction. In particula
 | `RolePermission` | Fixed role-to-capability join; security-internal | Role + permission | Both parents → none | Composite PK; C only with deliberately removable policy rows |
 | `UserSystemRole` | Global system grant; security-internal | User + system role | User, role, grantor → none | Composite PK; all parents R; trigger requires `SYSTEM` role scope |
 | `WorkspaceMember` | A user's workspace access and role; security/user-facing | Workspace | Workspace, user, workspace role, inviter → none | Unique workspace/user; parents R; trigger requires `WORKSPACE` role; free-text status |
-| `ShopeeAccount` | Authorized account reference, never credentials; user-facing | Workspace | Workspace, optional bound device → projects, products, jobs, expected sessions | Unique display name and partial operator reference per workspace; all references R; free-text status |
+| `ShopeeAccount` | Local future-target reference, never credentials; user-facing | Workspace | Workspace, optional dormant bound device → projects, products, jobs, expected sessions | Unique display name and partial operator reference per workspace; ACTIVE/ARCHIVED lifecycle; all references R |
 | `Worker` | Workspace-specific worker registration; infrastructure | Workspace | Workspace → credentials, devices, sessions, attempts, leases | Unique name and instance key per workspace; credentials C, operational history R; free-text status/platform |
 | `WorkerCredential` | Hashed worker secret; security/infrastructure | Workspace + worker | Worker → none | Globally unique hash; C only with worker purge; expiry/revocation timestamps drive lifecycle |
 | `WorkerEnrollmentToken` | One-use hashed enrollment token; security/infrastructure | Workspace | Workspace, creating user → none | Globally unique hash; parents R; expiry/used timestamps drive lifecycle |
@@ -97,7 +97,7 @@ The arrows express business flow, not always foreign-key direction. In particula
 | `Schedule` | Scheduling template; user-facing | Workspace | Workspace, creator → projects and runs | Unique name per workspace; references R; enum kind, free-text status/DST policies |
 | `Project` | Local future-publish configuration over a Dataset; user-facing | Workspace | Dataset, optional account/device/schedule, creator → items/jobs | Unique name per workspace; explicit DRAFT/READY/ARCHIVED lifecycle, bounded daily target/window, optimistic version; no execution in Slice 3.6 |
 | `ProjectItem` | Stable project materialization of a dataset item; user-facing | Workspace + project | Project, dataset item, media → product joins/jobs | Unique source item and position per project; product joins C, other references R; free-text status |
-| `ProductReference` | Operator-supplied product reference; user-facing | Workspace + account | Account → project-item joins | Partial unique operator reference per account; joins R; enum source, free-text status |
+| `ProductReference` | Local unverified AffiliateProduct configuration; user-facing | Workspace + account | ACTIVE account → future project-item joins | Partial unique operator reference per account; joins R; MANUAL source and ACTIVE/ARCHIVED lifecycle |
 | `ProjectItemProduct` | Ordered product attachment; user-facing | Project item | Project item + product | Composite PK and unique position; C with item, product R; no status |
 | `ScheduleRun` | Idempotent occurrence of a schedule; internal | Workspace + schedule | Schedule → publish jobs | Unique schedule/time/local occurrence; references R; free-text status |
 | `PublishJob` | Durable publish intent and state machine; internal/operator-visible | Workspace | Project, item, account, media, optional device/run/retry, creator → attempts, leases, events | Unique SHA-256 idempotency key per workspace; all references R; canonical job status/publisher/priority/error enums and SQL transition trigger |
@@ -214,8 +214,8 @@ This inventory excludes ordinary `createdAt`/`updatedAt` audit timestamps. A row
 | `Role` | `code`, `scope` | CANONICAL ENUM | Fixed role identity and grant scope |
 | `WorkspaceMember` | `status` | VALIDATED TEXT | Slice 2.4 contract: `ACTIVE`, `SUSPENDED`, `REVOKED`; only `ACTIVE` authorizes |
 | `WorkspaceMember` | `joinedAt` | TIMESTAMP-DERIVED | Join completion evidence |
-| `ShopeeAccount` | `status` | UNCONSTRAINED TEXT | Vocabulary deferred |
-| `ShopeeAccount` | `lastVerifiedAt` | TIMESTAMP-DERIVED | Last authorized identity verification |
+| `ShopeeAccount` | `status` | CONSTRAINED TEXT | `ACTIVE`, `ARCHIVED` local-record lifecycle only |
+| `ShopeeAccount` | `lastVerifiedAt` | TIMESTAMP-DERIVED | Dormant legacy field; Slice 4.1 never writes it |
 | `Worker` | `status`, `platform` | UNCONSTRAINED TEXT | Protocol vocabularies deferred |
 | `Worker` | `lastHeartbeatAt` | TIMESTAMP-DERIVED | Liveness observation, not a durable status by itself |
 | `WorkerCredential` | `expiresAt`, `lastUsedAt`, `revokedAt` | TIMESTAMP-DERIVED | Credential validity/use/revocation |
@@ -237,7 +237,7 @@ This inventory excludes ordinary `createdAt`/`updatedAt` audit timestamps. A row
 | `Project` | `captionMode` | UNCONSTRAINED TEXT | Template/caption behavior remains deferred; Slice 3.6 uses only the dormant safe default |
 | `ProjectItem` | `status` | UNCONSTRAINED TEXT | Vocabulary deferred |
 | `ProductReference` | `source` | CANONICAL ENUM | `ProductSource` |
-| `ProductReference` | `status` | UNCONSTRAINED TEXT | Vocabulary deferred |
+| `ProductReference` | `status` | CONSTRAINED TEXT | `ACTIVE`, `ARCHIVED` |
 | `ScheduleRun` | `status`, `errorCode` | UNCONSTRAINED TEXT | Run/error vocabularies deferred |
 | `ScheduleRun` | `startedAt`, `completedAt` | TIMESTAMP-DERIVED | Run execution interval |
 | `PublishJob` | `publisherKind`, `status`, `priority`, `lastErrorCategory` | CANONICAL ENUM | Shared publisher/job/priority/error contracts |
@@ -268,11 +268,10 @@ These columns are structurally present but are not yet controlled vocabularies. 
 
 | Entity | Field(s) | Current representation | Why not canonical yet | Finalize in |
 | --- | --- | --- | --- | --- |
-| `ShopeeAccount` | `status` | Unconstrained text | Account verification/disable semantics belong to project readiness | Phase 4, before account-management writes |
 | `MediaAsset` | later processing/retention statuses | Unconstrained text | Inspection is finalized, but derivative-processing and retention lifecycle semantics do not exist yet | Later Phase 3 media slices |
 | `Dataset` | `status` | Unconstrained text | Archive/edit behavior is not implemented | Phase 3 |
 | `Project` | `captionMode` and execution policy fields | Unconstrained/dormant | Caption templates, retry/rate profiles, and publish pre-flight are not implemented | Later project/job slices |
-| `ProjectItem`, `ProductReference` | `status` | Unconstrained text | Project-item/product lifecycle is not implemented | Phase 4 |
+| `ProjectItem` | `status` | Unconstrained text | Project-item materialization lifecycle is not implemented | Later Phase 4 slice |
 | `PublishAttempt` | `status`, `errorCode` | Unconstrained text | Attempt protocol/recovery vocabulary belongs to the job engine | Phase 5 |
 | `PublishResult` | `outcome`, `statusValue` | Unconstrained text | Result vocabulary depends on verified adapter semantics | Phase 5 |
 | `JobEvent` | `eventType`, `actorType` | Unconstrained text | Event taxonomy must follow implemented job commands | Phase 5 |

@@ -110,9 +110,9 @@ Delete: `CASCADE` when an unreferenced user is purged. This table never stores a
 
 ### `shopee_accounts`
 
-`id uuid` PK; `workspace_id uuid` non-null FK; `display_name text` non-null; `shop_name text` nullable; `operator_reference text` nullable; `country_code char(2)` non-null; `status text` non-null with its vocabulary deferred; `bound_device_id uuid` nullable; `last_verified_at timestamptz` nullable; `created_at`, `updated_at` non-null; `version integer` non-null.
+`id uuid` PK; `workspace_id uuid` non-null FK; bounded `display_name`; nullable bounded operator-supplied handle; `country_code char(2)` non-null; `status` constrained to `ACTIVE | ARCHIVED`; dormant `shop_name`, `bound_device_id`, and `last_verified_at`; timestamps; `version integer` non-null.
 
-Constraints: unique `(workspace_id, display_name)`; unique `(workspace_id, operator_reference)` where reference is not null; composite FK `(workspace_id, bound_device_id)` to devices, added after both tables. `operator_reference` is manually recorded from authorized visible UI and does not imply an undocumented API identifier. Delete: `RESTRICT`; disable instead.
+Constraints: bounded fields and version; unique `(workspace_id, display_name)`; unique `(workspace_id, operator_reference)` where reference is not null; composite FK `(workspace_id, bound_device_id)` to devices, added after both tables. Slice 4.1 writes only local descriptive fields and never credentials, device binding, or verification evidence. `operator_reference` is manually supplied and does not imply an authenticated account or undocumented API identifier. Delete: `RESTRICT`; archive instead.
 
 ### `workers`
 
@@ -184,9 +184,9 @@ Unique `(workspace_id, name)` and `(workspace_id, id)`. The posting window is ei
 
 ### `product_references`
 
-`id uuid` PK; `workspace_id`, `account_id` non-null composite FK; `display_name text` non-null; `operator_reference text` nullable; `product_url text` nullable; `sku text` nullable; `source product_source` non-null (`MANUAL` initially); `metadata jsonb` non-null default `{}` and sanitized; `status text` non-null with its vocabulary deferred to Phase 4; timestamps; `version integer` non-null.
+`id uuid` PK; `workspace_id`, `account_id` non-null composite FK; bounded `display_name`; bounded `operator_reference` and `product_url`, at least one of which is required; `sku text` nullable and dormant; `source product_source` non-null (`MANUAL`); `metadata jsonb` non-null default `{}` and dormant; `status` constrained to `ACTIVE | ARCHIVED`; timestamps; `version integer` non-null.
 
-Unique `(workspace_id, account_id, operator_reference)` where non-null; index `(workspace_id, account_id, display_name)`. `operator_reference` is operator-supplied and makes no API capability claim. Delete: `RESTRICT`; deactivate instead.
+Unique `(workspace_id, account_id, operator_reference)` where non-null; indexes support account/display and workspace lifecycle listing. `operator_reference` and URL are operator-supplied, unverified, and make no API capability claim. Delete: `RESTRICT`; archive instead.
 
 `project_item_products`: `workspace_id`, `project_item_id`, `product_reference_id` non-null composite FKs; `position integer` non-null; `created_at` non-null; composite PK `(project_item_id, product_reference_id)` and unique `(project_item_id, position)`. Application pre-flight rejects product attachment when the selected publisher lacks that capability.
 

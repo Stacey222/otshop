@@ -34,6 +34,7 @@ The user-supplied `tutor.zip` is retained unchanged as research input. It contai
 - [Dataset foundation](docs/architecture/datasets.md)
 - [Bounded batch media import](docs/architecture/media-batch-import.md)
 - [Project configuration foundation](docs/architecture/project-configuration.md)
+- [Shopee account and affiliate product configuration](docs/architecture/account-affiliate-product-configuration.md)
 - [Publisher contract](docs/architecture/publisher-contract.md)
 - [Job state machine](docs/architecture/job-state-machine.md)
 - [Worker protocol and leases](docs/architecture/worker-protocol.md)
@@ -190,6 +191,10 @@ Protected staged batch endpoints create one dedicated Dataset, stream one file p
 ## Project configuration foundation
 
 Protected `/api/projects` endpoints create, list, read, update, validate, and archive workspace-owned Project configuration. A Project references one active Dataset and may hold a bounded daily target, optional local posting window with an IANA timezone, and an optional local future-account reference. READY is a validation-only locked state: it creates no schedules, jobs, queues, worker work, Android activity, or Shopee action. See [Project configuration foundation](docs/architecture/project-configuration.md).
+
+## Shopee account and affiliate product configuration
+
+Protected local-only APIs manage workspace-owned ShopeeAccount and AffiliateProduct records with ACTIVE/ARCHIVED lifecycles, bounded keyset pagination, authorization, and optimistic concurrency. Product URLs remain unverified operator input and are never fetched. No credentials, Shopee connection, ProjectItem assignment, scheduler, job, worker, Android action, or publication is introduced. See [Shopee account and affiliate product configuration](docs/architecture/account-affiliate-product-configuration.md).
 
 ## Continuous integration and required merge checks
 

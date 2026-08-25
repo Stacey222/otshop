@@ -1,4 +1,5 @@
 export * from "./auth-repository";
+export * from "./account-product-repositories";
 export * from "./dataset-repository";
 export * from "./media-asset-repository";
 export * from "./media-import-batch-repository";

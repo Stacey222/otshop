@@ -1,4 +1,5 @@
 export * from "./access-control";
+export * from "./accounts-products";
 export * from "./auth";
 export * from "./datasets";
 export * from "./errors";
