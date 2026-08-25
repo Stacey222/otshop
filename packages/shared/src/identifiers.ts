@@ -55,6 +55,12 @@ export type DatasetItemId = z.infer<typeof DatasetItemIdSchema>;
 export const MediaAssetIdSchema = identifierSchema("MediaAssetId");
 export type MediaAssetId = z.infer<typeof MediaAssetIdSchema>;
 
+export const MediaImportBatchIdSchema = identifierSchema("MediaImportBatchId");
+export type MediaImportBatchId = z.infer<typeof MediaImportBatchIdSchema>;
+
+export const MediaImportBatchItemIdSchema = identifierSchema("MediaImportBatchItemId");
+export type MediaImportBatchItemId = z.infer<typeof MediaImportBatchItemIdSchema>;
+
 export const ProjectIdSchema = identifierSchema("ProjectId");
 export type ProjectId = z.infer<typeof ProjectIdSchema>;
 

@@ -14,6 +14,11 @@ import {
   DatasetItemNotFoundError,
   DatasetNotFoundError,
 } from "@/application/datasets/dataset-errors";
+import {
+  MediaBatchConflictError,
+  MediaBatchLimitError,
+  MediaBatchNotFoundError,
+} from "@/application/media-batches/media-batch-errors";
 
 import { errorResponse, mapErrorToSafeHttp } from "./api-response";
 
@@ -51,6 +56,12 @@ describe("safe API error boundary", () => {
       status: 409,
       body: { code: "DATASET_ARCHIVED" },
     });
+  });
+
+  it("maps batch not-found, conflict, and limit errors safely", () => {
+    expect(mapErrorToSafeHttp(new MediaBatchNotFoundError())).toMatchObject({ status: 404 });
+    expect(mapErrorToSafeHttp(new MediaBatchConflictError())).toMatchObject({ status: 409 });
+    expect(mapErrorToSafeHttp(new MediaBatchLimitError())).toMatchObject({ status: 413 });
   });
 
   it("maps stable error names across production bundle boundaries", () => {

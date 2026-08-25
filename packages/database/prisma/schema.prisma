@@ -115,26 +115,27 @@ enum ErrorCategory {
 }
 
 model User {
-  id                String                  @id @db.Uuid
-  email             String                  @unique(map: "users_email_key") @db.Citext
-  displayName       String                  @map("display_name") @db.Text
-  status            UserStatus
-  lastLoginAt       DateTime?               @map("last_login_at") @db.Timestamptz(3)
-  createdAt         DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt         DateTime                @updatedAt @map("updated_at") @db.Timestamptz(3)
-  credential        UserCredential?
-  sessions          UserSession[]
-  memberships       WorkspaceMember[]       @relation("MemberUser")
-  invitations       WorkspaceMember[]       @relation("MemberInviter")
-  systemRoles       UserSystemRole[]        @relation("SystemRoleUser")
-  grantedRoles      UserSystemRole[]        @relation("SystemRoleGrantor")
-  enrollmentTokens  WorkerEnrollmentToken[]
-  datasets          Dataset[]
-  projects          Project[]
-  schedules         Schedule[]
-  publishJobs       PublishJob[]
-  systemSettings    SystemSetting[]
-  workspaceSettings WorkspaceSetting[]
+  id                 String                  @id @db.Uuid
+  email              String                  @unique(map: "users_email_key") @db.Citext
+  displayName        String                  @map("display_name") @db.Text
+  status             UserStatus
+  lastLoginAt        DateTime?               @map("last_login_at") @db.Timestamptz(3)
+  createdAt          DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime                @updatedAt @map("updated_at") @db.Timestamptz(3)
+  credential         UserCredential?
+  sessions           UserSession[]
+  memberships        WorkspaceMember[]       @relation("MemberUser")
+  invitations        WorkspaceMember[]       @relation("MemberInviter")
+  systemRoles        UserSystemRole[]        @relation("SystemRoleUser")
+  grantedRoles       UserSystemRole[]        @relation("SystemRoleGrantor")
+  enrollmentTokens   WorkerEnrollmentToken[]
+  datasets           Dataset[]
+  mediaImportBatches MediaImportBatch[]
+  projects           Project[]
+  schedules          Schedule[]
+  publishJobs        PublishJob[]
+  systemSettings     SystemSetting[]
+  workspaceSettings  WorkspaceSetting[]
 
   @@index([status], map: "users_status_idx")
   @@map("users")
@@ -183,40 +184,42 @@ model Organization {
 }
 
 model Workspace {
-  id                  String                  @id @db.Uuid
-  organizationId      String                  @map("organization_id") @db.Uuid
-  name                String                  @db.Text
-  slug                String                  @db.Citext
-  timezone            String                  @db.Text
-  status              String                  @db.Text
-  createdAt           DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt           DateTime                @updatedAt @map("updated_at") @db.Timestamptz(3)
-  organization        Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  members             WorkspaceMember[]
-  accounts            ShopeeAccount[]
-  workers             Worker[]
-  enrollmentTokens    WorkerEnrollmentToken[]
-  devices             Device[]
-  deviceSessions      DeviceSession[]
-  mediaAssets         MediaAsset[]
-  datasets            Dataset[]
-  datasetItems        DatasetItem[]
-  projects            Project[]
-  projectItems        ProjectItem[]
-  productReferences   ProductReference[]
-  projectItemProducts ProjectItemProduct[]
-  schedules           Schedule[]
-  scheduleRuns        ScheduleRun[]
-  publishJobs         PublishJob[]
-  publishAttempts     PublishAttempt[]
-  publishResults      PublishResult[]
-  jobLeases           JobLease[]
-  deviceLeases        DeviceLease[]
-  jobEvents           JobEvent[]
-  auditLogs           AuditLog[]
-  outboxEvents        OutboxEvent[]
-  dispatchState       WorkspaceDispatchState?
-  settings            WorkspaceSetting[]
+  id                    String                  @id @db.Uuid
+  organizationId        String                  @map("organization_id") @db.Uuid
+  name                  String                  @db.Text
+  slug                  String                  @db.Citext
+  timezone              String                  @db.Text
+  status                String                  @db.Text
+  createdAt             DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime                @updatedAt @map("updated_at") @db.Timestamptz(3)
+  organization          Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  members               WorkspaceMember[]
+  accounts              ShopeeAccount[]
+  workers               Worker[]
+  enrollmentTokens      WorkerEnrollmentToken[]
+  devices               Device[]
+  deviceSessions        DeviceSession[]
+  mediaAssets           MediaAsset[]
+  mediaImportBatches    MediaImportBatch[]
+  mediaImportBatchItems MediaImportBatchItem[]
+  datasets              Dataset[]
+  datasetItems          DatasetItem[]
+  projects              Project[]
+  projectItems          ProjectItem[]
+  productReferences     ProductReference[]
+  projectItemProducts   ProjectItemProduct[]
+  schedules             Schedule[]
+  scheduleRuns          ScheduleRun[]
+  publishJobs           PublishJob[]
+  publishAttempts       PublishAttempt[]
+  publishResults        PublishResult[]
+  jobLeases             JobLease[]
+  deviceLeases          DeviceLease[]
+  jobEvents             JobEvent[]
+  auditLogs             AuditLog[]
+  outboxEvents          OutboxEvent[]
+  dispatchState         WorkspaceDispatchState?
+  settings              WorkspaceSetting[]
 
   @@unique([organizationId, slug], map: "workspaces_organization_slug_key")
   @@unique([organizationId, id], map: "workspaces_organization_id_id_key")
@@ -447,37 +450,38 @@ model DeviceSession {
 }
 
 model MediaAsset {
-  id                           String        @id @db.Uuid
-  workspaceId                  String        @map("workspace_id") @db.Uuid
+  id                           String                 @id @db.Uuid
+  workspaceId                  String                 @map("workspace_id") @db.Uuid
   source                       MediaSource
-  originalFilename             String        @map("original_filename") @db.Text
-  storageKey                   String        @map("storage_key") @db.Text
-  mimeType                     String        @map("mime_type") @db.Text
-  sizeBytes                    BigInt        @map("size_bytes") @db.BigInt
-  sha256                       Bytes         @db.ByteA
-  status                       String        @db.Text
-  durationMs                   BigInt?       @map("duration_ms") @db.BigInt
+  originalFilename             String                 @map("original_filename") @db.Text
+  storageKey                   String                 @map("storage_key") @db.Text
+  mimeType                     String                 @map("mime_type") @db.Text
+  sizeBytes                    BigInt                 @map("size_bytes") @db.BigInt
+  sha256                       Bytes                  @db.ByteA
+  status                       String                 @db.Text
+  durationMs                   BigInt?                @map("duration_ms") @db.BigInt
   width                        Int?
   height                       Int?
-  fps                          Decimal?      @db.Decimal(10, 3)
-  bitrateBps                   BigInt?       @map("bitrate_bps") @db.BigInt
-  codec                        String?       @db.Text
-  audioCodec                   String?       @map("audio_codec") @db.Text
-  orientation                  String?       @db.Text
-  thumbnailKey                 String?       @map("thumbnail_key") @db.Text
-  thumbnailGenerationStartedAt DateTime?     @map("thumbnail_generation_started_at") @db.Timestamptz(3)
-  contentSource                String?       @map("content_source") @db.Text
-  contentOwner                 String?       @map("content_owner") @db.Text
-  licenseReference             String?       @map("license_reference") @db.Text
-  notes                        String?       @db.Text
-  validationErrorCode          String?       @map("validation_error_code") @db.Text
-  createdAt                    DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt                    DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
-  version                      Int           @default(1)
-  workspace                    Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  fps                          Decimal?               @db.Decimal(10, 3)
+  bitrateBps                   BigInt?                @map("bitrate_bps") @db.BigInt
+  codec                        String?                @db.Text
+  audioCodec                   String?                @map("audio_codec") @db.Text
+  orientation                  String?                @db.Text
+  thumbnailKey                 String?                @map("thumbnail_key") @db.Text
+  thumbnailGenerationStartedAt DateTime?              @map("thumbnail_generation_started_at") @db.Timestamptz(3)
+  contentSource                String?                @map("content_source") @db.Text
+  contentOwner                 String?                @map("content_owner") @db.Text
+  licenseReference             String?                @map("license_reference") @db.Text
+  notes                        String?                @db.Text
+  validationErrorCode          String?                @map("validation_error_code") @db.Text
+  createdAt                    DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                    DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
+  version                      Int                    @default(1)
+  workspace                    Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
   datasetItems                 DatasetItem[]
   projectItems                 ProjectItem[]
   publishJobs                  PublishJob[]
+  mediaImportBatchItems        MediaImportBatchItem[]
 
   @@unique([workspaceId, sha256], map: "media_assets_workspace_sha256_key")
   @@unique([workspaceId, storageKey], map: "media_assets_workspace_storage_key_key")
@@ -488,19 +492,20 @@ model MediaAsset {
 }
 
 model Dataset {
-  id              String        @id @db.Uuid
-  workspaceId     String        @map("workspace_id") @db.Uuid
-  name            String        @db.Text
-  description     String?       @db.Text
-  status          String        @db.Text
-  createdByUserId String        @map("created_by_user_id") @db.Uuid
-  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt       DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
-  version         Int           @default(1)
-  workspace       Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
-  createdBy       User          @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
-  items           DatasetItem[]
-  projects        Project[]
+  id                 String             @id @db.Uuid
+  workspaceId        String             @map("workspace_id") @db.Uuid
+  name               String             @db.Text
+  description        String?            @db.Text
+  status             String             @db.Text
+  createdByUserId    String             @map("created_by_user_id") @db.Uuid
+  createdAt          DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+  version            Int                @default(1)
+  workspace          Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  createdBy          User               @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
+  items              DatasetItem[]
+  projects           Project[]
+  mediaImportBatches MediaImportBatch[]
 
   @@unique([workspaceId, name], map: "datasets_workspace_name_key")
   @@unique([workspaceId, id], map: "datasets_workspace_id_id_key")
@@ -528,6 +533,56 @@ model DatasetItem {
   @@unique([workspaceId, id], map: "dataset_items_workspace_id_id_key")
   @@index([workspaceId, mediaAssetId], map: "dataset_items_media_idx")
   @@map("dataset_items")
+}
+
+model MediaImportBatch {
+  id              String                 @id @db.Uuid
+  workspaceId     String                 @map("workspace_id") @db.Uuid
+  datasetId       String?                @map("dataset_id") @db.Uuid
+  createdByUserId String                 @map("created_by_user_id") @db.Uuid
+  name            String                 @db.Text
+  status          String                 @db.Text
+  totalBytes      BigInt                 @default(0) @map("total_bytes") @db.BigInt
+  reservedBytes   BigInt                 @default(0) @map("reserved_bytes") @db.BigInt
+  activeUploads   Int                    @default(0) @map("active_uploads")
+  version         Int                    @default(1)
+  createdAt       DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
+  workspace       Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  dataset         Dataset?               @relation(fields: [workspaceId, datasetId], references: [workspaceId, id], onDelete: Restrict)
+  createdBy       User                   @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
+  items           MediaImportBatchItem[]
+
+  @@unique([workspaceId, id], map: "media_import_batches_workspace_id_id_key")
+  @@index([workspaceId, createdAt], map: "media_import_batches_workspace_created_idx")
+  @@index([workspaceId, datasetId], map: "media_import_batches_dataset_idx")
+  @@index([createdByUserId], map: "media_import_batches_creator_idx")
+  @@map("media_import_batches")
+}
+
+model MediaImportBatchItem {
+  id              String           @id @db.Uuid
+  workspaceId     String           @map("workspace_id") @db.Uuid
+  batchId         String           @map("batch_id") @db.Uuid
+  mediaAssetId    String?          @map("media_asset_id") @db.Uuid
+  inputIndex      Int              @map("input_index")
+  displayFilename String           @map("display_filename") @db.Text
+  outcome         String           @db.Text
+  declaredBytes   BigInt           @map("declared_bytes") @db.BigInt
+  sizeBytes       BigInt?          @map("size_bytes") @db.BigInt
+  errorCode       String?          @map("error_code") @db.Text
+  datasetPosition Int?             @map("dataset_position")
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+  workspace       Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  batch           MediaImportBatch @relation(fields: [workspaceId, batchId], references: [workspaceId, id], onDelete: Cascade)
+  mediaAsset      MediaAsset?      @relation(fields: [workspaceId, mediaAssetId], references: [workspaceId, id], onDelete: Restrict)
+
+  @@unique([batchId, inputIndex], map: "media_import_batch_items_input_key")
+  @@unique([workspaceId, id], map: "media_import_batch_items_workspace_id_id_key")
+  @@index([workspaceId, mediaAssetId], map: "media_import_batch_items_media_idx")
+  @@index([batchId, outcome, inputIndex], map: "media_import_batch_items_outcome_idx")
+  @@map("media_import_batch_items")
 }
 
 model Schedule {

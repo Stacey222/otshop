@@ -59,7 +59,7 @@ The arrows express business flow, not always foreign-key direction. In particula
 
 | Required classification | Models | Meaning |
 | --- | --- | --- |
-| USER-FACING DOMAIN | `Organization`, `Workspace`, `ShopeeAccount`, `MediaAsset`, `Dataset`, `DatasetItem`, `Schedule`, `Project`, `ProjectItem`, `ProductReference`, `ProjectItemProduct` | Tenant roots plus operator-configured content and publish intent |
+| USER-FACING DOMAIN | `Organization`, `Workspace`, `ShopeeAccount`, `MediaAsset`, `Dataset`, `DatasetItem`, `MediaImportBatch`, `MediaImportBatchItem`, `Schedule`, `Project`, `ProjectItem`, `ProductReference`, `ProjectItemProduct` | Tenant roots plus operator-configured content and publish intent |
 | INTERNAL APPLICATION | `ScheduleRun`, `PublishJob`, `PublishAttempt`, `PublishResult` | Durable execution plan and outcome; expose through workflows, never generic table CRUD |
 | WORKER INFRASTRUCTURE | `Worker`, `WorkerCredential`, `WorkerEnrollmentToken`, `Device`, `DeviceSession`, `JobLease`, `DeviceLease`, `WorkspaceDispatchState` | Trusted worker registration, device observation, assignment, and fairness; not direct UI concepts |
 | OBSERVABILITY | `JobEvent`, `AuditLog`, `OutboxEvent` | Domain timeline, accountability, and reliable delivery; query through purpose-built views |
@@ -92,6 +92,8 @@ The arrows express business flow, not always foreign-key direction. In particula
 | `MediaAsset` | Immutable content metadata and storage pointer; user-facing | Workspace | Workspace → dataset/project/job references | Unique digest and storage key per workspace; references R; free-text status/orientation |
 | `Dataset` | Ordered reusable media collection; user-facing | Workspace | Workspace, creator → items and projects | Unique name per workspace; items C only when no project reference blocks deletion; free-text status |
 | `DatasetItem` | Media placement and overrides in a dataset; user-facing | Workspace + dataset | Dataset, media → project items | Unique media and position per dataset; dataset C, media/project references R; no status |
+| `MediaImportBatch` | Bounded staged media import; user-facing | Workspace | Workspace, creator, optional dataset → batch items | Unique workspace/id; dataset and creator R; explicit bounded lifecycle and optimistic version |
+| `MediaImportBatchItem` | Deterministic per-input import result; user-facing | Workspace + batch | Batch, optional media → none | Unique input index/batch and workspace/id; batch C, media R; bounded explicit outcome |
 | `Schedule` | Scheduling template; user-facing | Workspace | Workspace, creator → projects and runs | Unique name per workspace; references R; enum kind, free-text status/DST policies |
 | `Project` | Publish configuration over dataset/account; user-facing | Workspace | Dataset, account, optional device/schedule, creator → items/jobs | Unique name per workspace; all parents/children R once used; enum publisher, free-text status/caption mode |
 | `ProjectItem` | Stable project materialization of a dataset item; user-facing | Workspace + project | Project, dataset item, media → product joins/jobs | Unique source item and position per project; product joins C, other references R; free-text status |
@@ -137,6 +139,8 @@ The arrows express business flow, not always foreign-key direction. In particula
 | `MediaAsset` | Yes | Direct root only | Non-null workspace FK and workspace-scoped digest/storage uniqueness | No tenant parent besides workspace |
 | `Dataset` | Yes | Direct root only | Non-null workspace FK and workspace-scoped name | Creator is global attribution |
 | `DatasetItem` | Yes | Yes | Workspace-qualified dataset and media FKs | Both parents must be in the row's workspace |
+| `MediaImportBatch` | Yes | Yes | Workspace-qualified optional Dataset FK | Creator is global attribution |
+| `MediaImportBatchItem` | Yes | Yes | Workspace-qualified batch and optional media FKs | Input index is unique within the batch |
 | `Schedule` | Yes | Direct root only | Non-null workspace FK and workspace-scoped name | Creator is global attribution |
 | `Project` | Yes | Yes | Workspace-qualified dataset, account, device, and schedule FKs | Semantic graph consistency still needs pre-flight validation |
 | `ProjectItem` | Yes | Yes | Workspace-qualified project, dataset-item, and media FKs | Media equality with dataset item is not DB-proven |

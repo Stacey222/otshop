@@ -17,9 +17,25 @@ describe("parseAppConfig", () => {
     expect(config.ffprobeMaxOutputBytes).toBe(262_144);
     expect(config.ffprobeTimeoutMs).toBe(15_000);
     expect(config.maxMediaUploadBytes).toBe(268_435_456);
+    expect(config.mediaBatchMaxFiles).toBe(25);
+    expect(config.mediaBatchMaxTotalBytes).toBe(1_073_741_824);
+    expect(config.mediaBatchMaxConcurrency).toBe(2);
     expect(config.thumbnailMaxBytes).toBe(1_048_576);
     expect(config.thumbnailMaxDimension).toBe(640);
     expect(config.features.realPublishEnabled).toBe(false);
+  });
+
+  it("parses conservative media batch limits", () => {
+    const config = parseAppConfig({
+      MEDIA_BATCH_MAX_FILES: "10",
+      MEDIA_BATCH_MAX_TOTAL_BYTES: "1048576",
+      MEDIA_BATCH_MAX_CONCURRENCY: "2",
+    });
+    expect(config.mediaBatchMaxFiles).toBe(10);
+    expect(config.mediaBatchMaxTotalBytes).toBe(1_048_576);
+    expect(config.mediaBatchMaxConcurrency).toBe(2);
+    expect(() => parseAppConfig({ MEDIA_BATCH_MAX_FILES: "26" })).toThrow(ConfigurationError);
+    expect(() => parseAppConfig({ MEDIA_BATCH_MAX_CONCURRENCY: "3" })).toThrow(ConfigurationError);
   });
 
   it("parses a bounded positive media upload limit", () => {

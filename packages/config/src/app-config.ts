@@ -21,6 +21,9 @@ export interface AppConfig {
   readonly features: FeatureFlags;
   readonly logLevel: LogLevel;
   readonly maxMediaUploadBytes: number;
+  readonly mediaBatchMaxConcurrency: number;
+  readonly mediaBatchMaxFiles: number;
+  readonly mediaBatchMaxTotalBytes: number;
   readonly nodeEnv: "development" | "production" | "test";
   readonly storageRoot: string;
   readonly thumbnailMaxBytes: number;
@@ -65,6 +68,14 @@ const environmentSchema = z.object({
     .positive()
     .max(Number.MAX_SAFE_INTEGER)
     .default(268_435_456),
+  MEDIA_BATCH_MAX_CONCURRENCY: z.coerce.number().int().min(1).max(2).default(2),
+  MEDIA_BATCH_MAX_FILES: z.coerce.number().int().min(1).max(25).default(25),
+  MEDIA_BATCH_MAX_TOTAL_BYTES: z.coerce
+    .number()
+    .int()
+    .positive()
+    .max(1_073_741_824)
+    .default(1_073_741_824),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   STORAGE_ROOT: z.string().min(1).default("./storage"),
   THUMBNAIL_MAX_BYTES: z.coerce.number().int().min(16_384).max(16_777_216).default(1_048_576),
@@ -129,6 +140,9 @@ export const parseAppConfig = (source: EnvironmentSource): AppConfig => {
     features,
     logLevel: environmentResult.data.LOG_LEVEL,
     maxMediaUploadBytes: environmentResult.data.MAX_MEDIA_UPLOAD_BYTES,
+    mediaBatchMaxConcurrency: environmentResult.data.MEDIA_BATCH_MAX_CONCURRENCY,
+    mediaBatchMaxFiles: environmentResult.data.MEDIA_BATCH_MAX_FILES,
+    mediaBatchMaxTotalBytes: environmentResult.data.MEDIA_BATCH_MAX_TOTAL_BYTES,
     nodeEnv: environmentResult.data.NODE_ENV,
     storageRoot: environmentResult.data.STORAGE_ROOT,
     thumbnailMaxBytes: environmentResult.data.THUMBNAIL_MAX_BYTES,

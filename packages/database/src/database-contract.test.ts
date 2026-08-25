@@ -58,6 +58,15 @@ const datasetLifecycleMigration = readFileSync(
   ),
   "utf8",
 );
+const mediaImportBatchMigration = readFileSync(
+  fileURLToPath(
+    new URL(
+      "../prisma/migrations/20260825180000_media_import_batches/migration.sql",
+      import.meta.url,
+    ),
+  ),
+  "utf8",
+);
 const developerGuide = readFileSync(
   fileURLToPath(new URL("../../../docs/architecture/database-developer-guide.md", import.meta.url)),
   "utf8",
@@ -136,6 +145,14 @@ describe("database contract drift protection", () => {
     expect(datasetLifecycleMigration).toContain('CHECK ("position" < 1000)');
     expect(datasetLifecycleMigration).toContain('DROP INDEX "dataset_items_dataset_position_key"');
     expect(datasetLifecycleMigration).toContain("DEFERRABLE INITIALLY IMMEDIATE");
+    expect(mediaImportBatchMigration).toContain('CREATE TABLE "media_import_batches"');
+    expect(mediaImportBatchMigration).toContain('CREATE TABLE "media_import_batch_items"');
+    expect(mediaImportBatchMigration).toContain('"media_import_batches_status_check"');
+    expect(mediaImportBatchMigration).toContain('"input_index" >= 0 AND "input_index" < 25');
+    expect(mediaImportBatchMigration).toContain(
+      'REFERENCES "media_import_batches"("workspace_id", "id")',
+    );
+    expect(mediaImportBatchMigration).toContain('REFERENCES "media_assets"("workspace_id", "id")');
   });
 
   it("keeps the developer-guide model inventories synchronized with Prisma", () => {

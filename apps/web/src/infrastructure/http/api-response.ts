@@ -44,9 +44,12 @@ export function mapErrorToSafeHttp(error: unknown): SafeHttpError {
       : null;
 
   if (applicationError?.success === true) {
-    status = ["DATASET_NOT_FOUND", "DATASET_ITEM_NOT_FOUND", "MEDIA_NOT_FOUND"].includes(
-      applicationError.data.code,
-    )
+    status = [
+      "DATASET_NOT_FOUND",
+      "DATASET_ITEM_NOT_FOUND",
+      "MEDIA_BATCH_NOT_FOUND",
+      "MEDIA_NOT_FOUND",
+    ].includes(applicationError.data.code)
       ? 404
       : [
             "DATASET_ARCHIVED",
@@ -54,14 +57,19 @@ export function mapErrorToSafeHttp(error: unknown): SafeHttpError {
             "DATASET_DUPLICATE_MEDIA",
             "DATASET_ITEM_LIMIT",
             "DATASET_MEDIA_NOT_READY",
+            "MEDIA_BATCH_CONFLICT",
+            "MEDIA_BATCH_ITEM_CONFLICT",
+            "MEDIA_BATCH_NOT_FINALIZABLE",
             "MEDIA_INSPECTION_IN_PROGRESS",
             "MEDIA_NOT_READY",
             "THUMBNAIL_GENERATION_IN_PROGRESS",
           ].includes(applicationError.data.code)
         ? 409
-        : applicationError.data.retryable
-          ? 503
-          : 400;
+        : applicationError.data.code === "MEDIA_BATCH_LIMIT"
+          ? 413
+          : applicationError.data.retryable
+            ? 503
+            : 400;
     body = applicationError.data;
   } else if (error instanceof InvalidCredentialsError || errorName === "InvalidCredentialsError") {
     status = 401;

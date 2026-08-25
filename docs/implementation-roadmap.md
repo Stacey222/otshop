@@ -34,6 +34,8 @@ Slice 3.3 adds only one deterministic bounded JPEG thumbnail for `READY` media, 
 
 Slice 3.4 adds only workspace-scoped dataset create/read/list/update/archive, ordered references to same-workspace `READY` media, bounded caption metadata, full transactional reorder, and dataset-version optimistic concurrency. Custom-field mutation, hard delete/restore, bulk import, tags, projects, jobs, scheduling, workers, Android, Shopee, and publishing remain later gated slices.
 
+Slice 3.5 adds only a workspace-scoped staged batch protocol, bounded one-file streaming requests, canonical ingest and inspection orchestration, deterministic partial-failure reporting, SHA-256 reuse, and idempotent assembly into one new Dataset. Folder UI, server filesystem scanning, cancellation, generalized retries, tags, projects, products, accounts, daily targets, scheduling, workers, Android, Shopee, and publishing remain later gated slices.
+
 Gate: invalid/missing/duplicate media cases pass; source files are never overwritten; cleanup and retention are documented.
 
 ## Phase 4 — Project engine

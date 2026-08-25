@@ -1,6 +1,6 @@
 # OTShop
 
-OTShop is the planned control plane for authorized, human-supervised Shopee Video publishing through independently deployed Android workers. Phase 1 architecture and the Phase 2 control-plane foundation are complete. Phase 3 Slices 3.1–3.4 provide immutable media ingest, bounded inspection, one deterministic thumbnail derivative, and workspace-scoped ordered datasets; bulk import, projects, and video transformations have not begun.
+OTShop is the planned control plane for authorized, human-supervised Shopee Video publishing through independently deployed Android workers. Phase 1 architecture and the Phase 2 control-plane foundation are complete. Phase 3 Slices 3.1–3.5 provide immutable media ingest, bounded inspection, one deterministic thumbnail derivative, workspace-scoped ordered datasets, and bounded staged batch import; projects and video transformations have not begun.
 
 ## Safety boundary
 
@@ -32,6 +32,7 @@ The user-supplied `tutor.zip` is retained unchanged as research input. It contai
 - [Media inspection](docs/architecture/media-inspection.md)
 - [Thumbnail generation](docs/architecture/thumbnail-generation.md)
 - [Dataset foundation](docs/architecture/datasets.md)
+- [Bounded batch media import](docs/architecture/media-batch-import.md)
 - [Publisher contract](docs/architecture/publisher-contract.md)
 - [Job state machine](docs/architecture/job-state-machine.md)
 - [Worker protocol and leases](docs/architecture/worker-protocol.md)
@@ -51,7 +52,7 @@ Prerequisites:
 - Node.js 22.14 or a compatible Node.js 22 release;
 - pnpm 11.22 through Corepack.
 
-Python, ADB, Redis, and Android are not Slice 3.4 runtime dependencies. PostgreSQL 16, FFprobe, and FFmpeg are required for authenticated media inspection and thumbnail generation. Dataset operations are database-only references and do not access physical media. Production FFmpeg use is restricted to one JPEG thumbnail; it does not transcode or normalize video.
+Python, ADB, Redis, and Android are not Slice 3.5 runtime dependencies. PostgreSQL 16, FFprobe, and FFmpeg are required for authenticated media inspection and thumbnail generation. Batch uploads reuse FFprobe inspection, while Dataset operations remain database-only references. Production FFmpeg use is restricted to one optional JPEG thumbnail; batch import does not transcode or normalize video.
 
 Install dependencies from PowerShell at the repository root:
 
@@ -180,6 +181,10 @@ The canonical object is promoted without overwrite to `thumbnails/workspace/<wor
 ## Dataset foundation
 
 Protected `/api/datasets` endpoints create, list, read, update, and archive workspace-owned datasets and manage their ordered `READY` media references. Positions are zero-based and contiguous; reorder replaces the complete item order transactionally. All mutations require the current dataset version and increment it, so concurrent operations cannot silently overwrite one another. Archived datasets remain readable and become immutable. Dataset operations never copy, move, or delete original media or thumbnails. See [Dataset foundation](docs/architecture/datasets.md).
+
+## Bounded batch media import
+
+Protected staged batch endpoints create one dedicated Dataset, stream one file per request through the canonical ingest and inspection services, and finalize READY results in explicit input order. The server never accepts an arbitrary folder path. File count, aggregate bytes, individual bytes, metadata, active uploads, and result pages are bounded. Partial failures preserve successful immutable media, and repeated finalization reconciles without duplicate media or Dataset items. See [Bounded batch media import](docs/architecture/media-batch-import.md).
 
 ## Continuous integration and required merge checks
 

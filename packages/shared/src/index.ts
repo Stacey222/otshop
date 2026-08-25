@@ -7,6 +7,7 @@ export type { HealthResponse } from "./health";
 export * from "./identifiers";
 export * from "./jobs";
 export * from "./media";
+export * from "./media-batches";
 export * from "./json-schema";
 export * from "./protocol";
 export * from "./publisher";

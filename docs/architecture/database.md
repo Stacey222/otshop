@@ -162,6 +162,14 @@ Unique `(workspace_id, sha256)` and `(workspace_id, storage_key)`; indexes `(wor
 
 `id uuid` PK; `workspace_id`, `dataset_id`, `media_asset_id` non-null composite FKs; `position integer` non-null check >= 0; `caption_override text` nullable; `custom_fields jsonb` non-null default `{}`; timestamps. Unique `(dataset_id, media_asset_id)`, `(dataset_id, position)`, and `(workspace_id, id)`. Slice 3.4 accepts only same-workspace `READY` media and uses contiguous zero-based positions. Caption input is bounded; `custom_fields` API mutation remains deferred. Item removal deletes only the relation. Delete: `CASCADE` with an unreferenced dataset, otherwise `RESTRICT` through project references.
 
+### media_import_batches
+
+The batch row contains a UUID primary key, workspace ownership, an optional composite Dataset reference, creator, bounded display name, explicit lifecycle, aggregate admitted and reserved byte counters, active-upload count, optimistic version, and timestamps. Workspace and Dataset indexes support tenant-qualified lookup and reconciliation.
+
+### media_import_batch_items
+
+The item row contains a server UUID, composite workspace and batch ownership, optional composite canonical MediaAsset reference, unique bounded input index, bounded display filename, declared and observed bytes, explicit outcome, safe error code, optional reconciled Dataset position, and timestamps. It never duplicates storage or inspection metadata.
+
 ## Project and product tables
 
 ### `projects`
