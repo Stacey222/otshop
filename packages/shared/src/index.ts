@@ -1,5 +1,6 @@
 export * from "./access-control";
 export * from "./auth";
+export * from "./datasets";
 export * from "./errors";
 export type { FeatureFlags } from "./features";
 export type { HealthResponse } from "./health";

@@ -49,6 +49,9 @@ export type ShopeeAccountId = z.infer<typeof ShopeeAccountIdSchema>;
 export const DatasetIdSchema = identifierSchema("DatasetId");
 export type DatasetId = z.infer<typeof DatasetIdSchema>;
 
+export const DatasetItemIdSchema = identifierSchema("DatasetItemId");
+export type DatasetItemId = z.infer<typeof DatasetItemIdSchema>;
+
 export const MediaAssetIdSchema = identifierSchema("MediaAssetId");
 export type MediaAssetId = z.infer<typeof MediaAssetIdSchema>;
 

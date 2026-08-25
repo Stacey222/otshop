@@ -1,6 +1,6 @@
 # OTShop
 
-OTShop is the planned control plane for authorized, human-supervised Shopee Video publishing through independently deployed Android workers. Phase 1 architecture and the Phase 2 control-plane foundation are complete. Phase 3 Slices 3.1–3.3 provide immutable media ingest, bounded inspection, and one deterministic thumbnail derivative; datasets and video transformations have not begun.
+OTShop is the planned control plane for authorized, human-supervised Shopee Video publishing through independently deployed Android workers. Phase 1 architecture and the Phase 2 control-plane foundation are complete. Phase 3 Slices 3.1–3.4 provide immutable media ingest, bounded inspection, one deterministic thumbnail derivative, and workspace-scoped ordered datasets; bulk import, projects, and video transformations have not begun.
 
 ## Safety boundary
 
@@ -31,6 +31,7 @@ The user-supplied `tutor.zip` is retained unchanged as research input. It contai
 - [Security and RBAC](docs/architecture/security.md)
 - [Media inspection](docs/architecture/media-inspection.md)
 - [Thumbnail generation](docs/architecture/thumbnail-generation.md)
+- [Dataset foundation](docs/architecture/datasets.md)
 - [Publisher contract](docs/architecture/publisher-contract.md)
 - [Job state machine](docs/architecture/job-state-machine.md)
 - [Worker protocol and leases](docs/architecture/worker-protocol.md)
@@ -50,7 +51,7 @@ Prerequisites:
 - Node.js 22.14 or a compatible Node.js 22 release;
 - pnpm 11.22 through Corepack.
 
-Python, ADB, Redis, and Android are not Slice 3.3 runtime dependencies. PostgreSQL 16, FFprobe, and FFmpeg are required for authenticated media inspection and thumbnail generation. Production FFmpeg use is restricted to one JPEG thumbnail; it does not transcode or normalize video.
+Python, ADB, Redis, and Android are not Slice 3.4 runtime dependencies. PostgreSQL 16, FFprobe, and FFmpeg are required for authenticated media inspection and thumbnail generation. Dataset operations are database-only references and do not access physical media. Production FFmpeg use is restricted to one JPEG thumbnail; it does not transcode or normalize video.
 
 Install dependencies from PowerShell at the repository root:
 
@@ -175,6 +176,10 @@ The platform-neutral MVP policy accepts a primary H.264 `yuv420p`/`yuvj420p` vid
 `POST /api/media/<mediaAssetId>/thumbnail` generates exactly one JPEG preview for workspace-owned `READY` media. FFmpeg receives the immutable original through stdin and emits the JPEG through stdout; clients cannot provide paths, URLs, timestamps, dimensions, executable names, or command arguments. The representative point is 10% of duration capped at 10 seconds. The image preserves aspect ratio, is never upscaled, and is bounded to 640 pixels on either axis and 1 MiB by default.
 
 The canonical object is promoted without overwrite to `thumbnails/workspace/<workspace-id>/media/<media-id>.jpg`, then `thumbnailKey` is persisted with an optimistic database claim. Repeated requests validate and reuse the existing object. A promoted object whose database commit was uncertain is preserved and reconciled by a later stale-claim request. Binary serving is deferred; API responses expose safe dimensions, size, MIME type, and availability but never the storage key or filesystem path. See [Thumbnail generation](docs/architecture/thumbnail-generation.md).
+
+## Dataset foundation
+
+Protected `/api/datasets` endpoints create, list, read, update, and archive workspace-owned datasets and manage their ordered `READY` media references. Positions are zero-based and contiguous; reorder replaces the complete item order transactionally. All mutations require the current dataset version and increment it, so concurrent operations cannot silently overwrite one another. Archived datasets remain readable and become immutable. Dataset operations never copy, move, or delete original media or thumbnails. See [Dataset foundation](docs/architecture/datasets.md).
 
 ## Continuous integration and required merge checks
 

@@ -32,6 +32,8 @@ Slice 3.2 adds only bounded FFprobe inspection, normalized existing-schema metad
 
 Slice 3.3 adds only one deterministic bounded JPEG thumbnail for `READY` media, fixed-argument FFmpeg execution, strict output validation, immutable workspace-qualified promotion, optimistic cross-process coordination, idempotency, and persistence reconciliation. Video transcoding, additional derivative variants, binary serving, datasets, bulk import, and tags remain later gated slices.
 
+Slice 3.4 adds only workspace-scoped dataset create/read/list/update/archive, ordered references to same-workspace `READY` media, bounded caption metadata, full transactional reorder, and dataset-version optimistic concurrency. Custom-field mutation, hard delete/restore, bulk import, tags, projects, jobs, scheduling, workers, Android, Shopee, and publishing remain later gated slices.
+
 Gate: invalid/missing/duplicate media cases pass; source files are never overwritten; cleanup and retention are documented.
 
 ## Phase 4 — Project engine

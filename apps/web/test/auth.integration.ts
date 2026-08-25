@@ -15,6 +15,7 @@ import { POST as executeMockPublisherRoute } from "../src/app/api/publishers/moc
 import { POST as mediaIngestRoute } from "../src/app/api/media/route";
 import { POST as mediaInspectionRoute } from "../src/app/api/media/[mediaAssetId]/inspect/route";
 import { POST as mediaThumbnailRoute } from "../src/app/api/media/[mediaAssetId]/thumbnail/route";
+import { GET as datasetsRoute, POST as createDatasetRoute } from "../src/app/api/datasets/route";
 import { POST as publisherPreflightRoute } from "../src/app/api/publishers/preflight/route";
 import { GET as publishersRoute } from "../src/app/api/publishers/route";
 import { AuthorizationDeniedError } from "../src/application/auth/auth-errors";
@@ -163,6 +164,20 @@ describe("database-backed authentication and authorization", () => {
     );
     expect(
       (await publishersRoute(new NextRequest("http://localhost:3000/api/publishers"))).status,
+    ).toBe(401);
+    expect(
+      (await datasetsRoute(new NextRequest("http://localhost:3000/api/datasets"))).status,
+    ).toBe(401);
+    expect(
+      (
+        await createDatasetRoute(
+          new NextRequest("http://localhost:3000/api/datasets", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Origin: "http://localhost:3000" },
+            body: JSON.stringify({ name: "Unauthorized dataset" }),
+          }),
+        )
+      ).status,
     ).toBe(401);
     const unauthorizedThumbnailId = id();
     expect(
@@ -319,6 +334,21 @@ describe("database-backed authentication and authorization", () => {
         { kind: "SHOPEE_OFFICIAL_API", available: false },
       ],
     });
+    const datasetCreateResponse = await createDatasetRoute(
+      new NextRequest("http://localhost:3000/api/datasets", {
+        method: "POST",
+        headers: {
+          Cookie: publisherCookie,
+          "Content-Type": "application/json",
+          Origin: "http://localhost:3000",
+        },
+        body: JSON.stringify({ name: `Authorization dataset ${workspaceA}` }),
+      }),
+    );
+    expect(datasetCreateResponse.status).toBe(201);
+    const datasetCreateBody = (await datasetCreateResponse.json()) as {
+      dataset: { datasetId: string };
+    };
     const publisherPreflightResponse = await publisherPreflightRoute(
       new NextRequest("http://localhost:3000/api/publishers/preflight", {
         method: "POST",
@@ -474,6 +504,30 @@ describe("database-backed authentication and authorization", () => {
     });
     expect(
       (
+        await datasetsRoute(
+          new NextRequest("http://localhost:3000/api/datasets", {
+            headers: { Cookie: publisherCookie },
+          }),
+        )
+      ).status,
+    ).toBe(200);
+    expect(
+      (
+        await createDatasetRoute(
+          new NextRequest("http://localhost:3000/api/datasets", {
+            method: "POST",
+            headers: {
+              Cookie: publisherCookie,
+              "Content-Type": "application/json",
+              Origin: "http://localhost:3000",
+            },
+            body: JSON.stringify({ name: "Viewer denied dataset" }),
+          }),
+        )
+      ).status,
+    ).toBe(403);
+    expect(
+      (
         await executeMockPublisherRoute(
           new NextRequest("http://localhost:3000/api/publishers/mock/execute", {
             method: "POST",
@@ -532,6 +586,7 @@ describe("database-backed authentication and authorization", () => {
       where: { workspaceId_userId: { workspaceId: workspaceA, userId: userA } },
       data: { roleId: role.id },
     });
+    await prisma.dataset.delete({ where: { id: datasetCreateBody.dataset.datasetId } });
     expect(await prisma.publishJob.count()).toBe(publishJobCountBefore);
     const ingestedMedia = await prisma.mediaAsset.findUniqueOrThrow({
       where: { id: mediaBody.media.mediaAssetId },

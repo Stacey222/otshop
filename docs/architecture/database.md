@@ -156,11 +156,11 @@ Unique `(workspace_id, sha256)` and `(workspace_id, storage_key)`; indexes `(wor
 
 ### `datasets`
 
-`id uuid` PK; `workspace_id uuid` non-null; `name text` non-null; `description text` nullable; `status text` non-null with its vocabulary deferred to Phase 3; `created_by_user_id uuid` non-null; timestamps; `version integer` non-null. Unique `(workspace_id, name)` and `(workspace_id, id)`. Delete: `RESTRICT` while projects reference it; archive instead.
+`id uuid` PK; `workspace_id uuid` non-null; `name text` non-null; `description text` nullable; `status text` non-null constrained to `ACTIVE | ARCHIVED`; `created_by_user_id uuid` non-null; timestamps; `version integer` non-null. Unique `(workspace_id, name)` and `(workspace_id, id)`. Slice 3.4 uses the version for metadata and every membership mutation. Archive preserves items and makes the dataset read-only. Delete: `RESTRICT` while projects reference it; the Slice 3.4 API does not hard-delete.
 
 ### `dataset_items`
 
-`id uuid` PK; `workspace_id`, `dataset_id`, `media_asset_id` non-null composite FKs; `position integer` non-null check >= 0; `caption_override text` nullable; `custom_fields jsonb` non-null default `{}` with size/schema limits; timestamps. Unique `(dataset_id, media_asset_id)`, `(dataset_id, position)`, and `(workspace_id, id)`. Delete: `CASCADE` with an unreferenced dataset, otherwise `RESTRICT` through project references.
+`id uuid` PK; `workspace_id`, `dataset_id`, `media_asset_id` non-null composite FKs; `position integer` non-null check >= 0; `caption_override text` nullable; `custom_fields jsonb` non-null default `{}`; timestamps. Unique `(dataset_id, media_asset_id)`, `(dataset_id, position)`, and `(workspace_id, id)`. Slice 3.4 accepts only same-workspace `READY` media and uses contiguous zero-based positions. Caption input is bounded; `custom_fields` API mutation remains deferred. Item removal deletes only the relation. Delete: `CASCADE` with an unreferenced dataset, otherwise `RESTRICT` through project references.
 
 ## Project and product tables
 

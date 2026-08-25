@@ -52,6 +52,12 @@ const thumbnailClaimMigration = readFileSync(
   ),
   "utf8",
 );
+const datasetLifecycleMigration = readFileSync(
+  fileURLToPath(
+    new URL("../prisma/migrations/20260825150000_dataset_lifecycle/migration.sql", import.meta.url),
+  ),
+  "utf8",
+);
 const developerGuide = readFileSync(
   fileURLToPath(new URL("../../../docs/architecture/database-developer-guide.md", import.meta.url)),
   "utf8",
@@ -124,6 +130,12 @@ describe("database contract drift protection", () => {
     expect(thumbnailClaimMigration).toContain('"thumbnail_generation_started_at" TIMESTAMPTZ(3)');
     expect(thumbnailClaimMigration).toContain('"media_assets_thumbnail_lifecycle_check"');
     expect(thumbnailClaimMigration).toContain("\"status\" = 'READY'");
+    expect(datasetLifecycleMigration).toContain('CONSTRAINT "datasets_status_check"');
+    expect(datasetLifecycleMigration).toContain("\"status\" IN ('ACTIVE', 'ARCHIVED')");
+    expect(datasetLifecycleMigration).toContain('CONSTRAINT "dataset_items_position_max_check"');
+    expect(datasetLifecycleMigration).toContain('CHECK ("position" < 1000)');
+    expect(datasetLifecycleMigration).toContain('DROP INDEX "dataset_items_dataset_position_key"');
+    expect(datasetLifecycleMigration).toContain("DEFERRABLE INITIALLY IMMEDIATE");
   });
 
   it("keeps the developer-guide model inventories synchronized with Prisma", () => {

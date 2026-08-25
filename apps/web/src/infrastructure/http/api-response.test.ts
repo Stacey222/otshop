@@ -9,6 +9,11 @@ import {
   MediaNotReadyError,
   ThumbnailGenerationInProgressError,
 } from "@/application/media/media-errors";
+import {
+  DatasetArchivedError,
+  DatasetItemNotFoundError,
+  DatasetNotFoundError,
+} from "@/application/datasets/dataset-errors";
 
 import { errorResponse, mapErrorToSafeHttp } from "./api-response";
 
@@ -30,6 +35,21 @@ describe("safe API error boundary", () => {
     expect(mapErrorToSafeHttp(new ThumbnailGenerationInProgressError())).toMatchObject({
       status: 409,
       body: { code: "THUMBNAIL_GENERATION_IN_PROGRESS" },
+    });
+  });
+
+  it("maps dataset not-found and lifecycle errors safely", () => {
+    expect(mapErrorToSafeHttp(new DatasetNotFoundError())).toMatchObject({
+      status: 404,
+      body: { code: "DATASET_NOT_FOUND" },
+    });
+    expect(mapErrorToSafeHttp(new DatasetItemNotFoundError())).toMatchObject({
+      status: 404,
+      body: { code: "DATASET_ITEM_NOT_FOUND" },
+    });
+    expect(mapErrorToSafeHttp(new DatasetArchivedError())).toMatchObject({
+      status: 409,
+      body: { code: "DATASET_ARCHIVED" },
     });
   });
 
