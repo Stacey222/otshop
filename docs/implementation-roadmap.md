@@ -26,6 +26,10 @@ Implementation scope and sequencing are fixed by [the Phase 2 implementation con
 
 Implement storage ports, safe uploads, magic-byte/MIME/size checks, SHA-256 fingerprinting, FFprobe metadata, thumbnail generation, immutable originals, dataset CRUD, bulk import, tags, duplicate detection, and bounded processing concurrency.
 
+Slice 3.1 implements only the storage port/local adapter, bounded streaming MP4 ingest, immutable originals, SHA-256 workspace-scoped deduplication, authorization, persistence compensation, and their unit/API/PostgreSQL integration coverage. FFprobe, thumbnails, media processing, datasets, bulk import, and tags remain later gated slices.
+
+Slice 3.2 adds only bounded FFprobe inspection, normalized existing-schema metadata, a narrow platform-neutral compatibility decision, explicit inspection lifecycle/failure semantics, database concurrency claims, and real Windows/Linux-capable process integration coverage. Thumbnails, transformations, datasets, bulk import, and tags remain later gated slices.
+
 Gate: invalid/missing/duplicate media cases pass; source files are never overwritten; cleanup and retention are documented.
 
 ## Phase 4 — Project engine

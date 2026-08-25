@@ -1,4 +1,4 @@
-name: Phase 2 CI
+name: Phase 3 CI
 
 on:
   push:
@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   verify:
-    name: Verify Phase 2 foundation
+    name: Verify Phase 3 foundation
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -60,6 +60,12 @@ jobs:
 
       - name: Install locked dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Install and verify FFprobe
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends ffmpeg
+          ffprobe -version | head -n 1
 
       - name: Check formatting
         run: pnpm format:check

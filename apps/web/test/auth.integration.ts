@@ -12,6 +12,8 @@ import { POST as logoutRoute } from "../src/app/api/auth/logout/route";
 import { GET as sessionRoute } from "../src/app/api/auth/session/route";
 import { POST as selectWorkspaceRoute } from "../src/app/api/workspaces/select/route";
 import { POST as executeMockPublisherRoute } from "../src/app/api/publishers/mock/execute/route";
+import { POST as mediaIngestRoute } from "../src/app/api/media/route";
+import { POST as mediaInspectionRoute } from "../src/app/api/media/[mediaAssetId]/inspect/route";
 import { POST as publisherPreflightRoute } from "../src/app/api/publishers/preflight/route";
 import { GET as publishersRoute } from "../src/app/api/publishers/route";
 import { AuthorizationDeniedError } from "../src/application/auth/auth-errors";
@@ -21,9 +23,11 @@ import { Argon2idPasswordHasher } from "../src/application/auth/password";
 import { LocalLoginRateLimiter } from "../src/application/auth/rate-limiter";
 import { hashSessionToken } from "../src/application/auth/session-token";
 import { publisherTestRequest } from "../src/application/publisher/publisher-test-fixtures";
+import { validMp4 } from "../src/application/media/media-test-fixtures";
+import { getStorageProvider } from "../src/infrastructure/media/runtime";
 
 const prisma = getDatabaseClient();
-const now = new Date("2026-08-24T11:00:00.000Z");
+const now = new Date();
 const metadata = { ipPrefix: "127.0.0.0/24", userAgentFamily: "integration-test" } as const;
 
 const id = (): string => createUuidV7(now.getTime());
@@ -158,6 +162,21 @@ describe("database-backed authentication and authorization", () => {
     );
     expect(
       (await publishersRoute(new NextRequest("http://localhost:3000/api/publishers"))).status,
+    ).toBe(401);
+    expect(
+      (
+        await mediaIngestRoute(
+          new NextRequest("http://localhost:3000/api/media", {
+            method: "POST",
+            headers: {
+              "Content-Type": "video/mp4",
+              "x-media-filename": "unauthorized.mp4",
+              Origin: "http://localhost:3000",
+            },
+            body: validMp4,
+          }),
+        )
+      ).status,
     ).toBe(401);
     await expect(
       auth.login({ email: "user-a@example.test", password: "wrong" }, metadata, id()),
@@ -319,6 +338,103 @@ describe("database-backed authentication and authorization", () => {
         receipt: { externalReference: expect.stringMatching(/^mock:publication:/u) },
       },
     });
+    const mediaHeaders = {
+      Cookie: publisherCookie,
+      "Content-Type": "video/mp4",
+      "x-media-filename": encodeURIComponent("integration-😀.mp4"),
+      Origin: "http://localhost:3000",
+    };
+    const mediaResponse = await mediaIngestRoute(
+      new NextRequest("http://localhost:3000/api/media", {
+        method: "POST",
+        headers: mediaHeaders,
+        body: validMp4,
+      }),
+    );
+    expect(mediaResponse.status).toBe(201);
+    expect(mediaResponse.headers.get("x-request-id")).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u,
+    );
+    const mediaBody = await mediaResponse.json();
+    expect(mediaBody).toMatchObject({
+      media: {
+        originalFilename: "integration-😀.mp4",
+        mimeType: "video/mp4",
+        sizeBytes: validMp4.byteLength,
+        duplicate: false,
+      },
+    });
+    expect(JSON.stringify(mediaBody)).not.toMatch(/storage|temporary|filesystem|DATABASE_URL/iu);
+    const duplicateMediaResponse = await mediaIngestRoute(
+      new NextRequest("http://localhost:3000/api/media", {
+        method: "POST",
+        headers: { ...mediaHeaders, "x-media-filename": "renamed.mp4" },
+        body: validMp4,
+      }),
+    );
+    expect(duplicateMediaResponse.status).toBe(200);
+    expect(await duplicateMediaResponse.json()).toMatchObject({
+      media: { mediaAssetId: mediaBody.media.mediaAssetId, duplicate: true },
+    });
+    const mediaInspectionContext = {
+      params: Promise.resolve({ mediaAssetId: mediaBody.media.mediaAssetId as string }),
+    } as RouteContext<"/api/media/[mediaAssetId]/inspect">;
+    const rejectedInspection = await mediaInspectionRoute(
+      new NextRequest(
+        `http://localhost:3000/api/media/${mediaBody.media.mediaAssetId as string}/inspect`,
+        {
+          method: "POST",
+          headers: { Cookie: publisherCookie, Origin: "http://localhost:3000" },
+        },
+      ),
+      mediaInspectionContext,
+    );
+    expect(rejectedInspection.status).toBe(400);
+    expect(await rejectedInspection.json()).toMatchObject({
+      error: { code: "MEDIA_UNSUPPORTED" },
+    });
+    const malformedMultipart = await mediaIngestRoute(
+      new NextRequest("http://localhost:3000/api/media", {
+        method: "POST",
+        headers: {
+          Cookie: publisherCookie,
+          "Content-Type": "multipart/form-data; boundary=invalid",
+          "x-media-filename": "spoof.mp4",
+          Origin: "http://localhost:3000",
+        },
+        body: "not multipart",
+      }),
+    );
+    expect(malformedMultipart.status).toBe(400);
+    expect(await malformedMultipart.json()).toMatchObject({
+      error: { code: "UNSUPPORTED_MEDIA_TYPE" },
+    });
+    const missingFilename = await mediaIngestRoute(
+      new NextRequest("http://localhost:3000/api/media", {
+        method: "POST",
+        headers: {
+          Cookie: publisherCookie,
+          "Content-Type": "video/mp4",
+          Origin: "http://localhost:3000",
+        },
+        body: validMp4,
+      }),
+    );
+    expect(missingFilename.status).toBe(400);
+    expect(await missingFilename.json()).toMatchObject({
+      error: { code: "INVALID_MEDIA_FILENAME" },
+    });
+    const declaredOversize = await mediaIngestRoute(
+      new NextRequest("http://localhost:3000/api/media", {
+        method: "POST",
+        headers: { ...mediaHeaders, "Content-Length": "999999999" },
+        body: validMp4,
+      }),
+    );
+    expect(declaredOversize.status).toBe(400);
+    expect(await declaredOversize.json()).toMatchObject({
+      error: { code: "MEDIA_TOO_LARGE" },
+    });
     const crossWorkspacePublisherResponse = await executeMockPublisherRoute(
       new NextRequest("http://localhost:3000/api/publishers/mock/execute", {
         method: "POST",
@@ -356,11 +472,45 @@ describe("database-backed authentication and authorization", () => {
         )
       ).status,
     ).toBe(403);
+    expect(
+      (
+        await mediaIngestRoute(
+          new NextRequest("http://localhost:3000/api/media", {
+            method: "POST",
+            headers: mediaHeaders,
+            body: validMp4,
+          }),
+        )
+      ).status,
+    ).toBe(403);
+    expect(
+      (
+        await mediaInspectionRoute(
+          new NextRequest(
+            `http://localhost:3000/api/media/${mediaBody.media.mediaAssetId as string}/inspect`,
+            {
+              method: "POST",
+              headers: { Cookie: publisherCookie, Origin: "http://localhost:3000" },
+            },
+          ),
+          mediaInspectionContext,
+        )
+      ).status,
+    ).toBe(403);
     await prisma.workspaceMember.update({
       where: { workspaceId_userId: { workspaceId: workspaceA, userId: userA } },
       data: { roleId: role.id },
     });
     expect(await prisma.publishJob.count()).toBe(publishJobCountBefore);
+    const ingestedMedia = await prisma.mediaAsset.findUniqueOrThrow({
+      where: { id: mediaBody.media.mediaAssetId },
+    });
+    expect(ingestedMedia.workspaceId).toBe(workspaceA);
+    expect(ingestedMedia.status).toBe("REJECTED");
+    expect(ingestedMedia.validationErrorCode).toBe("PROBE_INVALID_MEDIA");
+    expect(ingestedMedia.storageKey).toMatch(/^original\/workspace\//u);
+    await getStorageProvider().delete(ingestedMedia.storageKey);
+    await prisma.mediaAsset.delete({ where: { id: ingestedMedia.id } });
 
     await prisma.workspaceMember.update({
       where: { workspaceId_userId: { workspaceId: workspaceA, userId: userA } },

@@ -5,6 +5,7 @@ export type { FeatureFlags } from "./features";
 export type { HealthResponse } from "./health";
 export * from "./identifiers";
 export * from "./jobs";
+export * from "./media";
 export * from "./json-schema";
 export * from "./protocol";
 export * from "./publisher";

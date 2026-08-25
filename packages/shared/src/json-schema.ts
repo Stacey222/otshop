@@ -19,6 +19,11 @@ import {
   WorkspaceIdSchema,
 } from "./identifiers";
 import { PublishJobStateSchema } from "./jobs";
+import {
+  MediaInspectionFailureCodeSchema,
+  MediaInspectionStatusSchema,
+  MediaOrientationSchema,
+} from "./media";
 import { WorkerProtocolVersionSchema } from "./protocol";
 import {
   PublishRequestSchema,
@@ -29,13 +34,16 @@ import {
   PublisherErrorSchema,
 } from "./publisher";
 
-export const SHARED_CONTRACT_SCHEMA_VERSION = 1 as const;
+export const SHARED_CONTRACT_SCHEMA_VERSION = 2 as const;
 
 const contractSchemas = {
   ApiErrorEnvelope: ApiErrorEnvelopeSchema,
   DatasetId: DatasetIdSchema,
   DeviceId: DeviceIdSchema,
   MediaAssetId: MediaAssetIdSchema,
+  MediaInspectionFailureCode: MediaInspectionFailureCodeSchema,
+  MediaInspectionStatus: MediaInspectionStatusSchema,
+  MediaOrientation: MediaOrientationSchema,
   OrganizationId: OrganizationIdSchema,
   Permission: PermissionSchema,
   ProductReferenceId: ProductReferenceIdSchema,

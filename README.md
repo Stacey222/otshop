@@ -1,6 +1,6 @@
 # OTShop
 
-OTShop is the planned control plane for authorized, human-supervised Shopee Video publishing through independently deployed Android workers. Phase 1 architecture and the Phase 2 control-plane foundation are complete. Phase 3 domain implementation has not begun.
+OTShop is the planned control plane for authorized, human-supervised Shopee Video publishing through independently deployed Android workers. Phase 1 architecture and the Phase 2 control-plane foundation are complete. Phase 3 Slices 3.1–3.2 provide immutable media ingest and bounded inspection; datasets and media transformations have not begun.
 
 ## Safety boundary
 
@@ -29,6 +29,7 @@ The user-supplied `tutor.zip` is retained unchanged as research input. It contai
 - [Final MVP system design](docs/architecture/system-design.md)
 - [Database design](docs/architecture/database.md)
 - [Security and RBAC](docs/architecture/security.md)
+- [Media inspection](docs/architecture/media-inspection.md)
 - [Publisher contract](docs/architecture/publisher-contract.md)
 - [Job state machine](docs/architecture/job-state-machine.md)
 - [Worker protocol and leases](docs/architecture/worker-protocol.md)
@@ -48,7 +49,7 @@ Prerequisites:
 - Node.js 22.14 or a compatible Node.js 22 release;
 - pnpm 11.22 through Corepack.
 
-Python, ADB, FFmpeg, Redis, and Android are not Phase 2 runtime dependencies. PostgreSQL 16 is required for authentication and normal authenticated application use; liveness and ordinary unit tests remain database-independent.
+Python, ADB, Redis, and Android are not Slice 3.2 runtime dependencies. PostgreSQL 16 and FFprobe are required for authenticated media inspection. FFmpeg transformations are not used in production code; the `ffmpeg` executable is used only to generate the tiny real-inspector test fixture.
 
 Install dependencies from PowerShell at the repository root:
 
@@ -148,9 +149,29 @@ POST /api/publishers/mock/execute
 
 The POST endpoints require same-origin requests. All endpoints reuse server request IDs, safe errors, structured redacted logs, authorization, trusted workspace context, and `no-store` responses. They make no network, Shopee, Android, ADB, worker, scheduler, or real-publish call.
 
+## Media ingest
+
+`POST /api/media` accepts an authenticated, same-origin raw request body for an active workspace member with `media.upload`. It is deliberately not a multipart endpoint. Send `Content-Type: video/mp4` and a percent-encoded UTF-8 display filename in `x-media-filename`; the server never treats that filename as a path. A PowerShell client that already has the application's authenticated cookies can prepare the body and headers as follows:
+
+```powershell
+$videoPath = Resolve-Path -LiteralPath ".\sample.mp4"
+$headers = @{ "x-media-filename" = [Uri]::EscapeDataString($videoPath.ProviderPath | Split-Path -Leaf) }
+Invoke-WebRequest -Uri "http://localhost:3000/api/media" -Method Post -WebSession $authenticatedSession -ContentType "video/mp4" -Headers $headers -InFile $videoPath.ProviderPath
+```
+
+The default maximum is 256 MiB (`MAX_MEDIA_UPLOAD_BYTES=268435456`). Both declared `Content-Length` and actual streamed bytes are bounded; the service does not buffer the complete upload in memory. Slice 3.1 accepts `.mp4` plus `video/mp4` and validates the ISO Base Media File Format `ftyp` signature and supported MP4 brands. `INGESTED` means only that these ingest checks succeeded and an immutable original was recorded.
+
+SHA-256 is calculated while staging. Identical content deduplicates to one row and one object within a workspace, including concurrent uploads. Different workspaces always receive distinct keys and records. Final keys are server-generated under `original/workspace/<workspace-id>/media/<sha256>.mp4`; APIs and logs never expose the configured filesystem path. Failed validation removes the temporary object, and a failed database insert compensates a newly promoted object when the database can confirm that no row was committed.
+
+## Media inspection
+
+`POST /api/media/<mediaAssetId>/inspect` inspects the workspace-owned immutable object through FFprobe. The server streams the trusted `StorageProvider` object to fixed FFprobe stdin arguments; clients cannot provide a filesystem path, executable, command argument, URL, or hash. The default timeout is 15 seconds and stdout/stderr are independently limited to 256 KiB. Configure these server-side with `FFPROBE_EXECUTABLE`, `FFPROBE_TIMEOUT_MS`, and `FFPROBE_MAX_OUTPUT_BYTES`.
+
+The platform-neutral MVP policy accepts a primary H.264 `yuv420p`/`yuvj420p` video stream with optional AAC audio. It validates bounded duration, dimensions, rational frame rate, bitrate, container, and rotation. `READY` is not a Shopee compatibility or malware-safety claim. Permanent incompatibility becomes `REJECTED`; transient storage/process failure becomes retryable `INSPECTION_FAILED`. The original is never modified or automatically transcoded. See [Media inspection](docs/architecture/media-inspection.md) for the complete policy and lifecycle.
+
 ## Continuous integration and required merge checks
 
-GitHub Actions runs one required Phase 2 verification pipeline for every push and pull request. It uses Node.js 22, the repository-pinned pnpm 11.22.0, locked dependency installation, and an ephemeral PostgreSQL 16 service database. No repository or production database credential is used.
+GitHub Actions runs one required Phase 3 verification pipeline for every push and pull request. It uses Node.js 22, the repository-pinned pnpm 11.22.0, an explicitly installed FFmpeg/FFprobe package, locked dependency installation, and an ephemeral PostgreSQL 16 service database. No repository or production database credential is used.
 
 The pipeline runs formatting, lint, type checking, Prisma validation, shared-schema drift checks, the complete deterministic test suite, empty-database migrations and PostgreSQL integration tests, and the production build. It also regenerates the shared contract artifact and fails if any tracked file changes. A failure means that the corresponding merge gate is not satisfied; do not merge by bypassing or excluding that check.
 

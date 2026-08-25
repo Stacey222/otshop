@@ -3,6 +3,10 @@ import { describe, expect, it } from "vitest";
 
 import { AuthorizationDeniedError } from "@/application/auth/auth-errors";
 import { ApplicationError } from "@/application/errors/application-error";
+import {
+  MediaInspectionInProgressError,
+  MediaNotFoundError,
+} from "@/application/media/media-errors";
 
 import { errorResponse, mapErrorToSafeHttp } from "./api-response";
 
@@ -22,6 +26,17 @@ describe("safe API error boundary", () => {
     expect(mapErrorToSafeHttp(bundledError)).toMatchObject({
       status: 401,
       body: { code: "AUTH_REQUIRED", message: "Authentication required" },
+    });
+  });
+
+  it("maps inspection lookup and concurrency errors without leaking asset existence", () => {
+    expect(mapErrorToSafeHttp(new MediaNotFoundError())).toMatchObject({
+      status: 404,
+      body: { code: "MEDIA_NOT_FOUND" },
+    });
+    expect(mapErrorToSafeHttp(new MediaInspectionInProgressError())).toMatchObject({
+      status: 409,
+      body: { code: "MEDIA_INSPECTION_IN_PROGRESS" },
     });
   });
 

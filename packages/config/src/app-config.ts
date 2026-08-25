@@ -12,8 +12,12 @@ export interface AppConfig {
   readonly appUrl: string;
   readonly appVersion: string;
   readonly databaseUrl: string | null;
+  readonly ffprobeExecutable: string;
+  readonly ffprobeMaxOutputBytes: number;
+  readonly ffprobeTimeoutMs: number;
   readonly features: FeatureFlags;
   readonly logLevel: LogLevel;
+  readonly maxMediaUploadBytes: number;
   readonly nodeEnv: "development" | "production" | "test";
   readonly storageRoot: string;
 }
@@ -43,7 +47,16 @@ const environmentSchema = z.object({
   APP_URL: appUrlSchema.default("http://localhost:3000"),
   APP_VERSION: z.string().min(1).default("0.0.0"),
   DATABASE_URL: databaseUrlSchema.optional(),
+  FFPROBE_EXECUTABLE: z.string().trim().min(1).max(1_024).default("ffprobe"),
+  FFPROBE_MAX_OUTPUT_BYTES: z.coerce.number().int().min(4_096).max(4_194_304).default(262_144),
+  FFPROBE_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(120_000).default(15_000),
   LOG_LEVEL: z.enum(logLevels).default("info"),
+  MAX_MEDIA_UPLOAD_BYTES: z.coerce
+    .number()
+    .int()
+    .positive()
+    .max(Number.MAX_SAFE_INTEGER)
+    .default(268_435_456),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   STORAGE_ROOT: z.string().min(1).default("./storage"),
 });
@@ -97,8 +110,12 @@ export const parseAppConfig = (source: EnvironmentSource): AppConfig => {
     appUrl: environmentResult.data.APP_URL,
     appVersion: environmentResult.data.APP_VERSION,
     databaseUrl: environmentResult.data.DATABASE_URL ?? null,
+    ffprobeExecutable: environmentResult.data.FFPROBE_EXECUTABLE,
+    ffprobeMaxOutputBytes: environmentResult.data.FFPROBE_MAX_OUTPUT_BYTES,
+    ffprobeTimeoutMs: environmentResult.data.FFPROBE_TIMEOUT_MS,
     features,
     logLevel: environmentResult.data.LOG_LEVEL,
+    maxMediaUploadBytes: environmentResult.data.MAX_MEDIA_UPLOAD_BYTES,
     nodeEnv: environmentResult.data.NODE_ENV,
     storageRoot: environmentResult.data.STORAGE_ROOT,
   };

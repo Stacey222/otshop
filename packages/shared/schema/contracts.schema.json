@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "OTShop shared cross-boundary contracts",
-  "contractVersion": 1,
+  "contractVersion": 2,
   "$defs": {
     "ApiErrorEnvelope": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -124,6 +124,47 @@
         }
       ],
       "description": "MediaAssetId"
+    },
+    "MediaInspectionFailureCode": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "string",
+      "enum": [
+        "CONTAINER_UNSUPPORTED",
+        "DURATION_INVALID",
+        "DIMENSIONS_INVALID",
+        "FRAME_RATE_INVALID",
+        "NO_VIDEO_STREAM",
+        "OUTPUT_LIMIT_EXCEEDED",
+        "PROBE_INVALID_MEDIA",
+        "PROBE_OUTPUT_INVALID",
+        "STORAGE_READ_FAILED",
+        "SYSTEM_FAILURE",
+        "TIMEOUT",
+        "UNSUPPORTED_AUDIO_CODEC",
+        "UNSUPPORTED_PIXEL_FORMAT",
+        "UNSUPPORTED_VIDEO_CODEC"
+      ]
+    },
+    "MediaInspectionStatus": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "string",
+      "enum": [
+        "INGESTED",
+        "INSPECTING",
+        "READY",
+        "REJECTED",
+        "INSPECTION_FAILED"
+      ]
+    },
+    "MediaOrientation": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "string",
+      "enum": [
+        "ROTATION_0",
+        "ROTATION_90",
+        "ROTATION_180",
+        "ROTATION_270"
+      ]
     },
     "OrganizationId": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",

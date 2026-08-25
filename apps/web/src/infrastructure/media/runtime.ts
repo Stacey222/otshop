@@ -1,0 +1,53 @@
+import "server-only";
+
+import { getAppConfig } from "@otshop/config";
+import { MediaAssetRepository } from "@otshop/database";
+
+import { MediaIngestService } from "@/application/media/media-ingest-service";
+import { MediaInspectionService } from "@/application/media/media-inspection-service";
+import { logger } from "@/infrastructure/logging/logger";
+import { LocalStorageProvider } from "@/infrastructure/storage/local-storage-provider";
+
+import { FFprobeMediaInspector } from "./ffprobe-media-inspector";
+
+let repository: MediaAssetRepository | undefined;
+let storage: LocalStorageProvider | undefined;
+let service: MediaIngestService | undefined;
+let inspectionService: MediaInspectionService | undefined;
+
+export function getMediaAssetRepository(): MediaAssetRepository {
+  repository ??= new MediaAssetRepository();
+  return repository;
+}
+
+export function getStorageProvider(): LocalStorageProvider {
+  storage ??= new LocalStorageProvider(getAppConfig().storageRoot);
+  return storage;
+}
+
+export function getMediaIngestService(): MediaIngestService {
+  const config = getAppConfig();
+  service ??= new MediaIngestService(
+    getMediaAssetRepository(),
+    getStorageProvider(),
+    config.maxMediaUploadBytes,
+    logger,
+  );
+  return service;
+}
+
+export function getMediaInspectionService(): MediaInspectionService {
+  const config = getAppConfig();
+  inspectionService ??= new MediaInspectionService(
+    getMediaAssetRepository(),
+    getStorageProvider(),
+    new FFprobeMediaInspector(
+      config.ffprobeExecutable,
+      config.ffprobeTimeoutMs,
+      config.ffprobeMaxOutputBytes,
+    ),
+    Math.max(60_000, config.ffprobeTimeoutMs * 2),
+    logger,
+  );
+  return inspectionService;
+}

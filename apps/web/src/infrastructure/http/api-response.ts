@@ -44,7 +44,14 @@ export function mapErrorToSafeHttp(error: unknown): SafeHttpError {
       : null;
 
   if (applicationError?.success === true) {
-    status = applicationError.data.retryable ? 503 : 400;
+    status =
+      applicationError.data.code === "MEDIA_NOT_FOUND"
+        ? 404
+        : applicationError.data.code === "MEDIA_INSPECTION_IN_PROGRESS"
+          ? 409
+          : applicationError.data.retryable
+            ? 503
+            : 400;
     body = applicationError.data;
   } else if (error instanceof InvalidCredentialsError || errorName === "InvalidCredentialsError") {
     status = 401;

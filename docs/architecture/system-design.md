@@ -180,9 +180,15 @@ All timestamps are stored as `timestamptz` in UTC. Workspace IANA timezones are 
 
 ## Media and storage boundary
 
-`StorageProvider` exposes `put`, `openRead`, `stat`, `copy`, and policy-authorized `delete` operations using opaque storage keys. It never accepts a user-supplied filesystem path as the final key. The local adapter enforces a configured root and verifies resolved paths remain inside it.
+`StorageProvider` exposes staged streaming writes, atomic no-overwrite promotion, `openRead`, `stat`, `exists`, and policy-authorized exact-object `delete` operations using opaque storage keys. It never accepts a user-supplied filesystem path as the final key. The local adapter canonicalizes a non-root configured directory, rejects symlinked managed directories, constrains keys to managed prefixes, and verifies resolved paths remain inside it.
 
-Logical prefixes are `original/`, `processed/`, `thumbnails/`, `temporary/`, and `diagnostics/`. Original media is immutable. Retention decisions live in application policy, not the adapter. Upload validation and FFmpeg processing begin in Phase 3, not Phase 2.
+Logical prefixes are `original/`, `processed/`, `thumbnails/`, `temporary/`, and `diagnostics/`. Slice 3.1 stages uploads under `temporary/`, calculates SHA-256 while streaming, then promotes with a same-filesystem hard link that cannot replace an existing object. Originals are read-only through the adapter and stored at server-generated, workspace-qualified content keys. Retention decisions live in application policy, not the adapter.
+
+The initial ingest contract accepts raw `video/mp4` request bodies with a sanitized display-only `.mp4` filename, enforces the configured byte limit incrementally, and validates the ISO-BMFF `ftyp` box and accepted MP4 brands. It does not claim FFprobe readability, codec compatibility, malware safety, or publish readiness. A successful record uses status `INGESTED`; probe fields remain null. `(workspace_id, sha256)` is the authoritative deduplication boundary, while atomic promotion and the database unique constraint make concurrent identical uploads converge. Different workspaces intentionally retain separate records and objects.
+
+Validation or interrupted streams remove the staged object. If persistence fails after this request created the final object, the service confirms that no row exists before deleting that final object. If commit outcome cannot be determined because the database remains unavailable, it preserves the immutable object for reconciliation instead of risking deletion of referenced media. Exact-object cleanup failures are logged with request/workspace-safe correlation and return a retryable storage error.
+
+Slice 3.2 adds the bounded [media inspection](media-inspection.md) boundary. The application streams only the workspace-owned opaque storage object to FFprobe stdin using fixed arguments and no shell. Timeout and captured output are bounded. Validated metadata and `READY`, `REJECTED`, or `INSPECTION_FAILED` are written with the same optimistic `version` update, so status cannot advertise READY without its required metadata. `INSPECTING` claims serialize concurrent requests and are reclaimable after a conservative stale interval.
 
 ## Observability
 

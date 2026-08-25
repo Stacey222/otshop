@@ -155,16 +155,20 @@ Before/after fields use allowlisted safe fields. Captions, filenames, tokens, ra
 
 ## File and media security
 
-- Validate maximum size before accepting the body where possible.
-- Verify extension, declared MIME, magic bytes, and actual FFprobe readability independently.
-- Generate opaque storage keys; never use a user filename as a path.
-- Resolve and verify local paths remain under the configured storage root.
-- Store originals immutably and process into separate keys.
+- Slice 3.1 validates declared length before reading where available and always enforces the configured maximum (`MAX_MEDIA_UPLOAD_BYTES`, default 256 MiB) against streamed bytes.
+- Slice 3.1 independently verifies a sanitized `.mp4` display filename, exact `video/mp4` MIME, and ISO-BMFF `ftyp` signature/brands. Slice 3.2 separately validates bounded FFprobe JSON and the documented platform-neutral codec policy.
+- Generate workspace-qualified content keys from the server-calculated SHA-256; never use a user filename or client hash as a path or trust boundary.
+- Canonicalize a non-root local storage directory, constrain opaque key segments, reject symlinked managed directories and non-regular objects, and resolve paths beneath the configured root.
+- Stage with exclusive creation, promote without overwrite, make originals read-only through the provider, and process future derivatives into separate keys.
 - Serve downloads through authorized handlers or short-lived signed URLs, never direct filesystem paths.
 - Apply decompression/process timeouts and bounded CPU, memory, disk, and subprocess concurrency.
 - Sanitize display filenames and response headers.
 
-Malware scanning and production upload limits are deployment decisions that must be set before Phase 3; absence of a scanner must be visible in readiness/configuration, not silently assumed safe.
+The upload service and route both enforce `media.upload` against the server-resolved active workspace. Deduplication queries and uniqueness are scoped by `workspace_id`; identical content in another workspace does not disclose or reuse the first workspace's record or object. Responses contain identifiers, sanitized display metadata, size, digest, timestamp, and duplicate state, but no filesystem path or raw storage key. Logs omit filenames, bodies, and paths and retain only bounded operational metadata including a short hash prefix.
+
+Malware scanning is not present in Slice 3.1, so `INGESTED` must never be interpreted as malware-safe or publish-ready. Production deployments must set an intentional upload limit and add the later scanning/probing readiness policy before enabling downstream media use. Local filesystem checks reduce path and symlink risk but cannot eliminate privileged local mutation or the final check/use race; storage-root permissions remain a deployment control.
+
+Inspection accepts only a validated media UUID and resolves it with the authenticated workspace. The inspector receives a trusted storage stream through stdin, never a request path or URL. FFprobe uses a server-controlled executable, fixed argument array, `shell: false`, a 15-second default timeout, and independent 256 KiB stdout/stderr limits. Raw output and stderr are discarded after validation and never logged or returned. These controls do not constitute an OS sandbox; native decoder vulnerabilities, CPU consumption before timeout, host-level process limits, and privileged filesystem mutation remain deployment risks.
 
 ## Safe diagnostics
 

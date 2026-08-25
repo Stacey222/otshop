@@ -223,7 +223,7 @@ This inventory excludes ordinary `createdAt`/`updatedAt` audit timestamps. A row
 | `DeviceSession` | `status`, `endReason` | UNCONSTRAINED TEXT | Session state/reason vocabularies deferred |
 | `DeviceSession` | `startedAt`, `lastHeartbeatAt`, `endedAt` | TIMESTAMP-DERIVED | Session interval and liveness |
 | `MediaAsset` | `source` | CANONICAL ENUM | `MediaSource` |
-| `MediaAsset` | `status`, `orientation`, `validationErrorCode` | UNCONSTRAINED TEXT | Media workflow vocabularies deferred |
+| `MediaAsset` | `status`, `orientation`, `validationErrorCode` | VALIDATED TEXT | Slice 3.2 application contract defines the five inspection statuses, four rotation values, and bounded permanent/transient failure codes |
 | `Dataset` | `status` | UNCONSTRAINED TEXT | Vocabulary deferred |
 | `Schedule` | `kind` | CANONICAL ENUM | `ScheduleKind` |
 | `Schedule` | `status`, `dstGapPolicy`, `dstOverlapPolicy` | UNCONSTRAINED TEXT | Scheduler vocabularies deferred |
@@ -264,7 +264,7 @@ These columns are structurally present but are not yet controlled vocabularies. 
 | Entity | Field(s) | Current representation | Why not canonical yet | Finalize in |
 | --- | --- | --- | --- | --- |
 | `ShopeeAccount` | `status` | Unconstrained text | Account verification/disable semantics belong to project readiness | Phase 4, before account-management writes |
-| `MediaAsset` | `status`, `orientation`, `validationErrorCode` | Unconstrained text | Probe, validation, and storage lifecycle is not implemented | Phase 3 |
+| `MediaAsset` | later processing/retention statuses | Unconstrained text | Inspection is finalized, but derivative-processing and retention lifecycle semantics do not exist yet | Later Phase 3 media slices |
 | `Dataset` | `status` | Unconstrained text | Archive/edit behavior is not implemented | Phase 3 |
 | `Project` | `status`, `captionMode` | Unconstrained text | Pause/readiness/template behavior is not implemented | Phase 4 |
 | `ProjectItem`, `ProductReference` | `status` | Unconstrained text | Project-item/product lifecycle is not implemented | Phase 4 |
