@@ -64,6 +64,22 @@ describe("LocalStorageProvider", () => {
     await expect(provider.exists(finalKey)).resolves.toBe(false);
   });
 
+  it("promotes one immutable thumbnail without allowing unrelated final prefixes", async () => {
+    const provider = new LocalStorageProvider(testRoot());
+    const temporary = await provider.writeTemporary(mediaChunks(Uint8Array.from([0xff, 0xd8])));
+    const thumbnailKey =
+      "thumbnails/workspace/018f1000-0000-7000-8000-000000000001/media/018f1000-0000-7000-8000-000000000010.jpg";
+    await expect(provider.promoteTemporary(temporary.key, thumbnailKey)).resolves.toBe("CREATED");
+    await expect(provider.exists(thumbnailKey)).resolves.toBe(true);
+
+    const unsafe = await provider.writeTemporary(mediaChunks(Uint8Array.from([1])));
+    await expect(provider.promoteTemporary(unsafe.key, "processed/output.mp4")).rejects.toBeInstanceOf(
+      UnsafeStorageConfigurationError,
+    );
+    await provider.delete(unsafe.key);
+    await provider.delete(thumbnailKey);
+  });
+
   it("removes partial temporary data when the upload stream fails", async () => {
     const root = testRoot();
     const provider = new LocalStorageProvider(root);

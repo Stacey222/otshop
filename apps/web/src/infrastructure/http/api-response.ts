@@ -47,7 +47,11 @@ export function mapErrorToSafeHttp(error: unknown): SafeHttpError {
     status =
       applicationError.data.code === "MEDIA_NOT_FOUND"
         ? 404
-        : applicationError.data.code === "MEDIA_INSPECTION_IN_PROGRESS"
+        : [
+              "MEDIA_INSPECTION_IN_PROGRESS",
+              "MEDIA_NOT_READY",
+              "THUMBNAIL_GENERATION_IN_PROGRESS",
+            ].includes(applicationError.data.code)
           ? 409
           : applicationError.data.retryable
             ? 503

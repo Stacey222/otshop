@@ -12,6 +12,9 @@ export interface AppConfig {
   readonly appUrl: string;
   readonly appVersion: string;
   readonly databaseUrl: string | null;
+  readonly ffmpegExecutable: string;
+  readonly ffmpegMaxDiagnosticBytes: number;
+  readonly ffmpegThumbnailTimeoutMs: number;
   readonly ffprobeExecutable: string;
   readonly ffprobeMaxOutputBytes: number;
   readonly ffprobeTimeoutMs: number;
@@ -20,6 +23,8 @@ export interface AppConfig {
   readonly maxMediaUploadBytes: number;
   readonly nodeEnv: "development" | "production" | "test";
   readonly storageRoot: string;
+  readonly thumbnailMaxBytes: number;
+  readonly thumbnailMaxDimension: number;
 }
 
 const usesProtocol = (value: string, allowedProtocols: ReadonlyArray<string>): boolean => {
@@ -47,6 +52,9 @@ const environmentSchema = z.object({
   APP_URL: appUrlSchema.default("http://localhost:3000"),
   APP_VERSION: z.string().min(1).default("0.0.0"),
   DATABASE_URL: databaseUrlSchema.optional(),
+  FFMPEG_EXECUTABLE: z.string().trim().min(1).max(1_024).default("ffmpeg"),
+  FFMPEG_MAX_DIAGNOSTIC_BYTES: z.coerce.number().int().min(4_096).max(4_194_304).default(262_144),
+  FFMPEG_THUMBNAIL_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(120_000).default(15_000),
   FFPROBE_EXECUTABLE: z.string().trim().min(1).max(1_024).default("ffprobe"),
   FFPROBE_MAX_OUTPUT_BYTES: z.coerce.number().int().min(4_096).max(4_194_304).default(262_144),
   FFPROBE_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(120_000).default(15_000),
@@ -59,6 +67,8 @@ const environmentSchema = z.object({
     .default(268_435_456),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   STORAGE_ROOT: z.string().min(1).default("./storage"),
+  THUMBNAIL_MAX_BYTES: z.coerce.number().int().min(16_384).max(16_777_216).default(1_048_576),
+  THUMBNAIL_MAX_DIMENSION: z.coerce.number().int().min(64).max(4_096).default(640),
 });
 
 const toConfigurationIssues = (issues: z.core.$ZodIssue[]): ConfigurationIssue[] =>
@@ -110,6 +120,9 @@ export const parseAppConfig = (source: EnvironmentSource): AppConfig => {
     appUrl: environmentResult.data.APP_URL,
     appVersion: environmentResult.data.APP_VERSION,
     databaseUrl: environmentResult.data.DATABASE_URL ?? null,
+    ffmpegExecutable: environmentResult.data.FFMPEG_EXECUTABLE,
+    ffmpegMaxDiagnosticBytes: environmentResult.data.FFMPEG_MAX_DIAGNOSTIC_BYTES,
+    ffmpegThumbnailTimeoutMs: environmentResult.data.FFMPEG_THUMBNAIL_TIMEOUT_MS,
     ffprobeExecutable: environmentResult.data.FFPROBE_EXECUTABLE,
     ffprobeMaxOutputBytes: environmentResult.data.FFPROBE_MAX_OUTPUT_BYTES,
     ffprobeTimeoutMs: environmentResult.data.FFPROBE_TIMEOUT_MS,
@@ -118,6 +131,8 @@ export const parseAppConfig = (source: EnvironmentSource): AppConfig => {
     maxMediaUploadBytes: environmentResult.data.MAX_MEDIA_UPLOAD_BYTES,
     nodeEnv: environmentResult.data.NODE_ENV,
     storageRoot: environmentResult.data.STORAGE_ROOT,
+    thumbnailMaxBytes: environmentResult.data.THUMBNAIL_MAX_BYTES,
+    thumbnailMaxDimension: environmentResult.data.THUMBNAIL_MAX_DIMENSION,
   };
 };
 

@@ -158,7 +158,10 @@ export class LocalStorageProvider implements StorageProvider {
 
   async promoteTemporary(temporaryKey: string, finalKey: string): Promise<StoragePromotion> {
     await this.initialize();
-    if (!temporaryKey.startsWith("temporary/") || !finalKey.startsWith("original/")) {
+    if (
+      !temporaryKey.startsWith("temporary/") ||
+      (!finalKey.startsWith("original/") && !finalKey.startsWith("thumbnails/"))
+    ) {
       throw new UnsafeStorageConfigurationError("Storage promotion keys are invalid");
     }
     const temporary = this.resolveKey(temporaryKey);

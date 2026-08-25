@@ -43,6 +43,15 @@ const assignmentIntegrityMigration = readFileSync(
   ),
   "utf8",
 );
+const thumbnailClaimMigration = readFileSync(
+  fileURLToPath(
+    new URL(
+      "../prisma/migrations/20260825120000_thumbnail_generation_claim/migration.sql",
+      import.meta.url,
+    ),
+  ),
+  "utf8",
+);
 const developerGuide = readFileSync(
   fileURLToPath(new URL("../../../docs/architecture/database-developer-guide.md", import.meta.url)),
   "utf8",
@@ -112,6 +121,9 @@ describe("database contract drift protection", () => {
     expect(assignmentIntegrityMigration).toMatch(
       /FOREIGN KEY \("workspace_id", "job_id", "worker_id", "device_id", "job_lease_id"\)\s+REFERENCES "job_leases" \("workspace_id", "job_id", "worker_id", "device_id", "id"\)/u,
     );
+    expect(thumbnailClaimMigration).toContain('"thumbnail_generation_started_at" TIMESTAMPTZ(3)');
+    expect(thumbnailClaimMigration).toContain('"media_assets_thumbnail_lifecycle_check"');
+    expect(thumbnailClaimMigration).toContain("\"status\" = 'READY'");
   });
 
   it("keeps the developer-guide model inventories synchronized with Prisma", () => {

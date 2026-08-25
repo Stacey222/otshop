@@ -21,6 +21,8 @@ export interface MediaAssetRecord {
   readonly codec: string | null;
   readonly audioCodec: string | null;
   readonly orientation: MediaOrientation | null;
+  readonly thumbnailKey: string | null;
+  readonly thumbnailGenerationStartedAt: Date | null;
   readonly validationErrorCode: MediaInspectionFailureCode | null;
   readonly createdAt: Date;
   readonly updatedAt: Date;
@@ -78,4 +80,27 @@ export interface MediaInspectionRepositoryPort {
       readonly orientation: MediaOrientation;
     } | null;
   }): Promise<{ readonly asset: MediaAssetRecord; readonly updated: boolean }>;
+}
+
+export interface MediaThumbnailRepositoryPort {
+  claimThumbnail(input: {
+    readonly workspaceId: string;
+    readonly mediaAssetId: string;
+    readonly staleBefore: Date;
+    readonly startedAt: Date;
+  }): Promise<
+    | { readonly state: "CLAIMED" | "EXISTING"; readonly asset: MediaAssetRecord }
+    | { readonly state: "IN_PROGRESS" | "NOT_FOUND" | "NOT_READY" }
+  >;
+  completeThumbnail(input: {
+    readonly workspaceId: string;
+    readonly mediaAssetId: string;
+    readonly claimedVersion: number;
+    readonly thumbnailKey: string;
+  }): Promise<{ readonly asset: MediaAssetRecord; readonly updated: boolean }>;
+  releaseThumbnailClaim(input: {
+    readonly workspaceId: string;
+    readonly mediaAssetId: string;
+    readonly claimedVersion: number;
+  }): Promise<boolean>;
 }

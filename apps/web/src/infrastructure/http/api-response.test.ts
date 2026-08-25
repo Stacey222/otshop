@@ -6,6 +6,8 @@ import { ApplicationError } from "@/application/errors/application-error";
 import {
   MediaInspectionInProgressError,
   MediaNotFoundError,
+  MediaNotReadyError,
+  ThumbnailGenerationInProgressError,
 } from "@/application/media/media-errors";
 
 import { errorResponse, mapErrorToSafeHttp } from "./api-response";
@@ -17,6 +19,17 @@ describe("safe API error boundary", () => {
     expect(mapErrorToSafeHttp(new AuthorizationDeniedError())).toMatchObject({
       status: 403,
       body: { code: "AUTHORIZATION_DENIED" },
+    });
+  });
+
+  it("maps thumbnail eligibility and concurrency failures safely", () => {
+    expect(mapErrorToSafeHttp(new MediaNotReadyError())).toMatchObject({
+      status: 409,
+      body: { code: "MEDIA_NOT_READY" },
+    });
+    expect(mapErrorToSafeHttp(new ThumbnailGenerationInProgressError())).toMatchObject({
+      status: 409,
+      body: { code: "THUMBNAIL_GENERATION_IN_PROGRESS" },
     });
   });
 

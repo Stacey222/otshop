@@ -447,36 +447,37 @@ model DeviceSession {
 }
 
 model MediaAsset {
-  id                  String        @id @db.Uuid
-  workspaceId         String        @map("workspace_id") @db.Uuid
-  source              MediaSource
-  originalFilename    String        @map("original_filename") @db.Text
-  storageKey          String        @map("storage_key") @db.Text
-  mimeType            String        @map("mime_type") @db.Text
-  sizeBytes           BigInt        @map("size_bytes") @db.BigInt
-  sha256              Bytes         @db.ByteA
-  status              String        @db.Text
-  durationMs          BigInt?       @map("duration_ms") @db.BigInt
-  width               Int?
-  height              Int?
-  fps                 Decimal?      @db.Decimal(10, 3)
-  bitrateBps          BigInt?       @map("bitrate_bps") @db.BigInt
-  codec               String?       @db.Text
-  audioCodec          String?       @map("audio_codec") @db.Text
-  orientation         String?       @db.Text
-  thumbnailKey        String?       @map("thumbnail_key") @db.Text
-  contentSource       String?       @map("content_source") @db.Text
-  contentOwner        String?       @map("content_owner") @db.Text
-  licenseReference    String?       @map("license_reference") @db.Text
-  notes               String?       @db.Text
-  validationErrorCode String?       @map("validation_error_code") @db.Text
-  createdAt           DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt           DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
-  version             Int           @default(1)
-  workspace           Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
-  datasetItems        DatasetItem[]
-  projectItems        ProjectItem[]
-  publishJobs         PublishJob[]
+  id                           String        @id @db.Uuid
+  workspaceId                  String        @map("workspace_id") @db.Uuid
+  source                       MediaSource
+  originalFilename             String        @map("original_filename") @db.Text
+  storageKey                   String        @map("storage_key") @db.Text
+  mimeType                     String        @map("mime_type") @db.Text
+  sizeBytes                    BigInt        @map("size_bytes") @db.BigInt
+  sha256                       Bytes         @db.ByteA
+  status                       String        @db.Text
+  durationMs                   BigInt?       @map("duration_ms") @db.BigInt
+  width                        Int?
+  height                       Int?
+  fps                          Decimal?      @db.Decimal(10, 3)
+  bitrateBps                   BigInt?       @map("bitrate_bps") @db.BigInt
+  codec                        String?       @db.Text
+  audioCodec                   String?       @map("audio_codec") @db.Text
+  orientation                  String?       @db.Text
+  thumbnailKey                 String?       @map("thumbnail_key") @db.Text
+  thumbnailGenerationStartedAt DateTime?     @map("thumbnail_generation_started_at") @db.Timestamptz(3)
+  contentSource                String?       @map("content_source") @db.Text
+  contentOwner                 String?       @map("content_owner") @db.Text
+  licenseReference             String?       @map("license_reference") @db.Text
+  notes                        String?       @db.Text
+  validationErrorCode          String?       @map("validation_error_code") @db.Text
+  createdAt                    DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                    DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  version                      Int           @default(1)
+  workspace                    Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  datasetItems                 DatasetItem[]
+  projectItems                 ProjectItem[]
+  publishJobs                  PublishJob[]
 
   @@unique([workspaceId, sha256], map: "media_assets_workspace_sha256_key")
   @@unique([workspaceId, storageKey], map: "media_assets_workspace_storage_key_key")

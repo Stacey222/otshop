@@ -190,6 +190,8 @@ Validation or interrupted streams remove the staged object. If persistence fails
 
 Slice 3.2 adds the bounded [media inspection](media-inspection.md) boundary. The application streams only the workspace-owned opaque storage object to FFprobe stdin using fixed arguments and no shell. Timeout and captured output are bounded. Validated metadata and `READY`, `REJECTED`, or `INSPECTION_FAILED` are written with the same optimistic `version` update, so status cannot advertise READY without its required metadata. `INSPECTING` claims serialize concurrent requests and are reclaimable after a conservative stale interval.
 
+Slice 3.3 adds one bounded [thumbnail derivative](thumbnail-generation.md) for `READY` media. The application owns eligibility, workspace authorization, optimistic claim/release, canonical key construction, immutable promotion, persistence, and compensation. The FFmpeg adapter owns only fixed-argument process execution and strict JPEG validation. A nullable claim timestamp serializes generators across processes without adding a media lifecycle state; version-checked completion prevents a late stale claimant from overwriting newer state.
+
 ## Observability
 
 Application logs are structured JSON. The Next.js proxy replaces every browser-supplied correlation value with a server-generated UUIDv7, injects it internally as `x-otshop-request-id`, and returns the safe value as `x-request-id`. Direct route tests or internal calls generate a replacement if the trusted internal header is absent or malformed. Request IDs correlate activity; they never authenticate or authorize it.

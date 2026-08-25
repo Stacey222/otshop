@@ -61,6 +61,8 @@ const asset = (workspaceId = mediaWorkspaceA): MediaAssetRecord => ({
   codec: null,
   audioCodec: null,
   orientation: null,
+  thumbnailKey: null,
+  thumbnailGenerationStartedAt: null,
   validationErrorCode: null,
   createdAt: new Date("2026-08-25T00:00:00.000Z"),
   updatedAt: new Date("2026-08-25T00:00:00.000Z"),

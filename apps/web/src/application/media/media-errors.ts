@@ -91,3 +91,59 @@ export class MediaInspectionFailureError extends ApplicationError {
     });
   }
 }
+
+export class MediaNotReadyError extends SafeMediaError {
+  constructor() {
+    super("MEDIA_NOT_READY", "The media asset is not ready for thumbnail generation");
+  }
+}
+
+export class ThumbnailGenerationInProgressError extends SafeMediaError {
+  constructor() {
+    super("THUMBNAIL_GENERATION_IN_PROGRESS", "A thumbnail is already being generated");
+  }
+}
+
+export class ThumbnailGenerationTimeoutError extends ApplicationError {
+  constructor() {
+    super({
+      category: "RETRYABLE",
+      code: "THUMBNAIL_GENERATION_TIMEOUT",
+      message: "Thumbnail generation timed out",
+      retryable: true,
+    });
+  }
+}
+
+export class ThumbnailGenerationFailedError extends ApplicationError {
+  constructor() {
+    super({
+      category: "NON_RETRYABLE",
+      code: "THUMBNAIL_GENERATION_FAILED",
+      message: "The thumbnail could not be generated safely",
+      retryable: false,
+    });
+  }
+}
+
+export class ThumbnailStorageFailureError extends ApplicationError {
+  constructor() {
+    super({
+      category: "RETRYABLE",
+      code: "THUMBNAIL_STORAGE_FAILURE",
+      message: "The thumbnail could not be stored safely",
+      retryable: true,
+    });
+  }
+}
+
+export class ThumbnailPersistenceFailureError extends ApplicationError {
+  constructor() {
+    super({
+      category: "RETRYABLE",
+      code: "THUMBNAIL_PERSISTENCE_FAILURE",
+      message: "The thumbnail metadata could not be saved safely",
+      retryable: true,
+    });
+  }
+}

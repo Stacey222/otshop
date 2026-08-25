@@ -10,10 +10,15 @@ describe("parseAppConfig", () => {
     expect(config.nodeEnv).toBe("development");
     expect(config.appUrl).toBe("http://localhost:3000");
     expect(config.databaseUrl).toBeNull();
+    expect(config.ffmpegExecutable).toBe("ffmpeg");
+    expect(config.ffmpegMaxDiagnosticBytes).toBe(262_144);
+    expect(config.ffmpegThumbnailTimeoutMs).toBe(15_000);
     expect(config.ffprobeExecutable).toBe("ffprobe");
     expect(config.ffprobeMaxOutputBytes).toBe(262_144);
     expect(config.ffprobeTimeoutMs).toBe(15_000);
     expect(config.maxMediaUploadBytes).toBe(268_435_456);
+    expect(config.thumbnailMaxBytes).toBe(1_048_576);
+    expect(config.thumbnailMaxDimension).toBe(640);
     expect(config.features.realPublishEnabled).toBe(false);
   });
 
@@ -38,6 +43,27 @@ describe("parseAppConfig", () => {
     expect(config.ffprobeTimeoutMs).toBe(5_000);
     expect(() => parseAppConfig({ FFPROBE_MAX_OUTPUT_BYTES: "100" })).toThrow(ConfigurationError);
     expect(() => parseAppConfig({ FFPROBE_TIMEOUT_MS: "0" })).toThrow(ConfigurationError);
+  });
+
+  it("parses bounded FFmpeg thumbnail configuration", () => {
+    const config = parseAppConfig({
+      FFMPEG_EXECUTABLE: "C:\\tools\\ffmpeg.exe",
+      FFMPEG_MAX_DIAGNOSTIC_BYTES: "65536",
+      FFMPEG_THUMBNAIL_TIMEOUT_MS: "5000",
+      THUMBNAIL_MAX_BYTES: "524288",
+      THUMBNAIL_MAX_DIMENSION: "480",
+    });
+    expect(config.ffmpegExecutable).toBe("C:\\tools\\ffmpeg.exe");
+    expect(config.ffmpegMaxDiagnosticBytes).toBe(65_536);
+    expect(config.ffmpegThumbnailTimeoutMs).toBe(5_000);
+    expect(config.thumbnailMaxBytes).toBe(524_288);
+    expect(config.thumbnailMaxDimension).toBe(480);
+    expect(() => parseAppConfig({ FFMPEG_MAX_DIAGNOSTIC_BYTES: "100" })).toThrow(
+      ConfigurationError,
+    );
+    expect(() => parseAppConfig({ FFMPEG_THUMBNAIL_TIMEOUT_MS: "0" })).toThrow(ConfigurationError);
+    expect(() => parseAppConfig({ THUMBNAIL_MAX_BYTES: "100" })).toThrow(ConfigurationError);
+    expect(() => parseAppConfig({ THUMBNAIL_MAX_DIMENSION: "32" })).toThrow(ConfigurationError);
   });
 
   it("rejects malformed application URLs", () => {

@@ -170,6 +170,8 @@ Malware scanning is not present in Slice 3.1, so `INGESTED` must never be interp
 
 Inspection accepts only a validated media UUID and resolves it with the authenticated workspace. The inspector receives a trusted storage stream through stdin, never a request path or URL. FFprobe uses a server-controlled executable, fixed argument array, `shell: false`, a 15-second default timeout, and independent 256 KiB stdout/stderr limits. Raw output and stderr are discarded after validation and never logged or returned. These controls do not constitute an OS sandbox; native decoder vulnerabilities, CPU consumption before timeout, host-level process limits, and privileged filesystem mutation remain deployment risks.
 
+Thumbnail generation accepts the same validated workspace-owned media UUID and requires `media.upload` at both route and service boundaries. Only `READY` originals are streamed to fixed FFmpeg stdin arguments with `shell: false`; JPEG stdout, diagnostic stderr, execution time, and image dimensions are independently bounded. The service validates JPEG structure and encoded dimensions before immutable promotion. Canonical keys contain only validated workspace/media IDs, and responses and logs omit filenames, paths, storage keys, command lines, media bytes, and FFmpeg diagnostics.
+
 ## Safe diagnostics
 
 Diagnostics collection is opt-in per error or explicit admin request. The worker captures only the minimum necessary screen region and UI hierarchy. Before upload and again before export, it removes known token patterns, authorization headers, cookies, OTP-like fields, and configured sensitive UI nodes. Bundles have opaque keys, workspace-scoped access, short retention, download audits, and no public URLs.

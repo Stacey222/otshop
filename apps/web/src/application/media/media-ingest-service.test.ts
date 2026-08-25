@@ -133,6 +133,8 @@ class MemoryRepository implements MediaAssetRepositoryPort {
       codec: null,
       audioCodec: null,
       orientation: null,
+      thumbnailKey: null,
+      thumbnailGenerationStartedAt: null,
       validationErrorCode: null,
       createdAt: new Date("2026-08-24T00:00:00.000Z"),
       updatedAt: new Date("2026-08-24T00:00:00.000Z"),

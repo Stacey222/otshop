@@ -27,6 +27,8 @@ export interface MediaAssetRecord {
   readonly codec: string | null;
   readonly audioCodec: string | null;
   readonly orientation: MediaOrientation | null;
+  readonly thumbnailKey: string | null;
+  readonly thumbnailGenerationStartedAt: Date | null;
   readonly validationErrorCode: MediaInspectionFailureCode | null;
   readonly createdAt: Date;
   readonly updatedAt: Date;
@@ -61,6 +63,8 @@ const toRecord = (asset: MediaAsset): MediaAssetRecord => ({
   codec: asset.codec,
   audioCodec: asset.audioCodec,
   orientation: asset.orientation === null ? null : MediaOrientationSchema.parse(asset.orientation),
+  thumbnailKey: asset.thumbnailKey,
+  thumbnailGenerationStartedAt: asset.thumbnailGenerationStartedAt,
   validationErrorCode:
     asset.validationErrorCode === null
       ? null
@@ -226,5 +230,121 @@ export class MediaAssetRepository {
       if (asset === null) throw new Error("Media asset disappeared during inspection");
       return { asset: toRecord(asset), updated: updated.count === 1 };
     });
+  }
+
+  async claimThumbnail(input: {
+    readonly workspaceId: string;
+    readonly mediaAssetId: string;
+    readonly staleBefore: Date;
+    readonly startedAt: Date;
+  }): Promise<
+    | { readonly state: "CLAIMED" | "EXISTING"; readonly asset: MediaAssetRecord }
+    | { readonly state: "IN_PROGRESS" | "NOT_FOUND" | "NOT_READY" }
+  > {
+    return this.client.$transaction(async (transaction) => {
+      const current = await transaction.mediaAsset.findUnique({
+        where: {
+          workspaceId_id: { workspaceId: input.workspaceId, id: input.mediaAssetId },
+        },
+      });
+      if (current === null) return { state: "NOT_FOUND" } as const;
+      if (current.thumbnailKey !== null) {
+        return { state: "EXISTING", asset: toRecord(current) } as const;
+      }
+      if (current.status !== "READY") return { state: "NOT_READY" } as const;
+      if (
+        current.thumbnailGenerationStartedAt !== null &&
+        current.thumbnailGenerationStartedAt > input.staleBefore
+      ) {
+        return { state: "IN_PROGRESS" } as const;
+      }
+      const claimed = await transaction.mediaAsset.updateMany({
+        where: {
+          id: input.mediaAssetId,
+          workspaceId: input.workspaceId,
+          status: "READY",
+          thumbnailKey: null,
+          version: current.version,
+          OR: [
+            { thumbnailGenerationStartedAt: null },
+            { thumbnailGenerationStartedAt: { lte: input.staleBefore } },
+          ],
+        },
+        data: {
+          thumbnailGenerationStartedAt: input.startedAt,
+          version: { increment: 1 },
+        },
+      });
+      if (claimed.count !== 1) {
+        const latest = await transaction.mediaAsset.findUnique({
+          where: {
+            workspaceId_id: { workspaceId: input.workspaceId, id: input.mediaAssetId },
+          },
+        });
+        if (latest?.thumbnailKey !== null && latest?.thumbnailKey !== undefined) {
+          return { state: "EXISTING", asset: toRecord(latest) } as const;
+        }
+        return { state: "IN_PROGRESS" } as const;
+      }
+      const asset = await transaction.mediaAsset.findUniqueOrThrow({
+        where: {
+          workspaceId_id: { workspaceId: input.workspaceId, id: input.mediaAssetId },
+        },
+      });
+      return { state: "CLAIMED", asset: toRecord(asset) } as const;
+    });
+  }
+
+  async completeThumbnail(input: {
+    readonly workspaceId: string;
+    readonly mediaAssetId: string;
+    readonly claimedVersion: number;
+    readonly thumbnailKey: string;
+  }): Promise<{ readonly asset: MediaAssetRecord; readonly updated: boolean }> {
+    return this.client.$transaction(async (transaction) => {
+      const updated = await transaction.mediaAsset.updateMany({
+        where: {
+          id: input.mediaAssetId,
+          workspaceId: input.workspaceId,
+          status: "READY",
+          thumbnailKey: null,
+          thumbnailGenerationStartedAt: { not: null },
+          version: input.claimedVersion,
+        },
+        data: {
+          thumbnailKey: input.thumbnailKey,
+          thumbnailGenerationStartedAt: null,
+          version: { increment: 1 },
+        },
+      });
+      const asset = await transaction.mediaAsset.findUnique({
+        where: {
+          workspaceId_id: { workspaceId: input.workspaceId, id: input.mediaAssetId },
+        },
+      });
+      if (asset === null) throw new Error("Media asset disappeared during thumbnail generation");
+      return { asset: toRecord(asset), updated: updated.count === 1 };
+    });
+  }
+
+  async releaseThumbnailClaim(input: {
+    readonly workspaceId: string;
+    readonly mediaAssetId: string;
+    readonly claimedVersion: number;
+  }): Promise<boolean> {
+    const released = await this.client.mediaAsset.updateMany({
+      where: {
+        id: input.mediaAssetId,
+        workspaceId: input.workspaceId,
+        thumbnailKey: null,
+        thumbnailGenerationStartedAt: { not: null },
+        version: input.claimedVersion,
+      },
+      data: {
+        thumbnailGenerationStartedAt: null,
+        version: { increment: 1 },
+      },
+    });
+    return released.count === 1;
   }
 }

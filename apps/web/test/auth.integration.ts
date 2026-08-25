@@ -14,6 +14,7 @@ import { POST as selectWorkspaceRoute } from "../src/app/api/workspaces/select/r
 import { POST as executeMockPublisherRoute } from "../src/app/api/publishers/mock/execute/route";
 import { POST as mediaIngestRoute } from "../src/app/api/media/route";
 import { POST as mediaInspectionRoute } from "../src/app/api/media/[mediaAssetId]/inspect/route";
+import { POST as mediaThumbnailRoute } from "../src/app/api/media/[mediaAssetId]/thumbnail/route";
 import { POST as publisherPreflightRoute } from "../src/app/api/publishers/preflight/route";
 import { GET as publishersRoute } from "../src/app/api/publishers/route";
 import { AuthorizationDeniedError } from "../src/application/auth/auth-errors";
@@ -162,6 +163,20 @@ describe("database-backed authentication and authorization", () => {
     );
     expect(
       (await publishersRoute(new NextRequest("http://localhost:3000/api/publishers"))).status,
+    ).toBe(401);
+    const unauthorizedThumbnailId = id();
+    expect(
+      (
+        await mediaThumbnailRoute(
+          new NextRequest(`http://localhost:3000/api/media/${unauthorizedThumbnailId}/thumbnail`, {
+            method: "POST",
+            headers: { Origin: "http://localhost:3000" },
+          }),
+          {
+            params: Promise.resolve({ mediaAssetId: unauthorizedThumbnailId }),
+          } as RouteContext<"/api/media/[mediaAssetId]/thumbnail">,
+        )
+      ).status,
     ).toBe(401);
     expect(
       (
@@ -494,6 +509,22 @@ describe("database-backed authentication and authorization", () => {
             },
           ),
           mediaInspectionContext,
+        )
+      ).status,
+    ).toBe(403);
+    expect(
+      (
+        await mediaThumbnailRoute(
+          new NextRequest(
+            `http://localhost:3000/api/media/${mediaBody.media.mediaAssetId as string}/thumbnail`,
+            {
+              method: "POST",
+              headers: { Cookie: publisherCookie, Origin: "http://localhost:3000" },
+            },
+          ),
+          {
+            params: Promise.resolve({ mediaAssetId: mediaBody.media.mediaAssetId as string }),
+          } as RouteContext<"/api/media/[mediaAssetId]/thumbnail">,
         )
       ).status,
     ).toBe(403);

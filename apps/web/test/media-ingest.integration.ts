@@ -9,6 +9,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { MediaPersistenceFailureError } from "../src/application/media/media-errors";
 import { MediaIngestService } from "../src/application/media/media-ingest-service";
 import { MediaInspectionService } from "../src/application/media/media-inspection-service";
+import { MediaThumbnailService } from "../src/application/media/media-thumbnail-service";
 import type { MediaAssetRepositoryPort } from "../src/application/media/media-asset-repository";
 import type {
   MediaInspector,
@@ -17,11 +18,13 @@ import type {
 import {
   MediaInspectionInProgressError,
   MediaNotFoundError,
+  ThumbnailGenerationInProgressError,
 } from "../src/application/media/media-errors";
 import {
   mediaChunks,
   mediaContext,
   mediaRequestId,
+  jpegThumbnail,
   silentMediaLogger,
   validMp4,
   validMp4Sha256,
@@ -225,6 +228,103 @@ describe("database-backed immutable media ingestion", () => {
     await expect(inspectB()).rejects.toBeInstanceOf(MediaInspectionInProgressError);
     releaseInspection(normalized);
     await expect(firstInspection).resolves.toMatchObject({ status: "READY" });
+
+    const thumbnailBytes = jpegThumbnail(320, 180);
+    let thumbnailCalls = 0;
+    const thumbnailGenerator = {
+      async generateThumbnail({ source }: { source: AsyncIterable<Uint8Array> }) {
+        for await (const _chunk of source) void _chunk;
+        thumbnailCalls += 1;
+        return {
+          bytes: thumbnailBytes,
+          height: 180,
+          mimeType: "image/jpeg" as const,
+          width: 320,
+        };
+      },
+    };
+    const thumbnailService = new MediaThumbnailService(
+      repository,
+      storage,
+      thumbnailGenerator,
+      1_024,
+      640,
+      60_000,
+      silentMediaLogger,
+    );
+    const thumbnailA = () =>
+      thumbnailService.generate({
+        context: mediaContext("ADMIN", workspaceA),
+        requestId: mediaRequestId,
+        mediaAssetId: workspaceARecord.id,
+      });
+    await expect(thumbnailA()).resolves.toMatchObject({
+      generated: true,
+      height: 180,
+      mediaAssetId: workspaceARecord.id,
+      mimeType: "image/jpeg",
+      thumbnailAvailable: true,
+      width: 320,
+    });
+    await expect(thumbnailA()).resolves.toMatchObject({ generated: false });
+    expect(thumbnailCalls).toBe(1);
+    await expect(
+      thumbnailService.generate({
+        context: mediaContext("ADMIN", workspaceB),
+        requestId: mediaRequestId,
+        mediaAssetId: workspaceARecord.id,
+      }),
+    ).rejects.toBeInstanceOf(MediaNotFoundError);
+    const persistedThumbnail = await prisma.mediaAsset.findUniqueOrThrow({
+      where: { id: workspaceARecord.id },
+    });
+    expect(persistedThumbnail.thumbnailKey).toBe(
+      `thumbnails/workspace/${workspaceA}/media/${workspaceARecord.id}.jpg`,
+    );
+    expect(persistedThumbnail.thumbnailGenerationStartedAt).toBeNull();
+    if (persistedThumbnail.thumbnailKey === null) throw new Error("Expected persisted thumbnail");
+    await expect(storage.exists(persistedThumbnail.thumbnailKey)).resolves.toBe(true);
+
+    let releaseThumbnail: (() => void) | undefined;
+    let thumbnailEntered: (() => void) | undefined;
+    const thumbnailEnteredPromise = new Promise<void>((resolve) => {
+      thumbnailEntered = resolve;
+    });
+    const releaseThumbnailPromise = new Promise<void>((resolve) => {
+      releaseThumbnail = resolve;
+    });
+    const blockingThumbnailService = new MediaThumbnailService(
+      repository,
+      storage,
+      {
+        async generateThumbnail({ source }) {
+          for await (const _chunk of source) void _chunk;
+          thumbnailEntered?.();
+          await releaseThumbnailPromise;
+          return {
+            bytes: thumbnailBytes,
+            height: 180,
+            mimeType: "image/jpeg",
+            width: 320,
+          };
+        },
+      },
+      1_024,
+      640,
+      60_000,
+      silentMediaLogger,
+    );
+    const thumbnailB = () =>
+      blockingThumbnailService.generate({
+        context: mediaContext("ADMIN", workspaceB),
+        requestId: mediaRequestId,
+        mediaAssetId: workspaceBRecord.id,
+      });
+    const firstThumbnail = thumbnailB();
+    await thumbnailEnteredPromise;
+    await expect(thumbnailB()).rejects.toBeInstanceOf(ThumbnailGenerationInProgressError);
+    releaseThumbnail?.();
+    await expect(firstThumbnail).resolves.toMatchObject({ thumbnailAvailable: true });
 
     const failingRepository: MediaAssetRepositoryPort = {
       findByWorkspaceAndSha256: async () => {

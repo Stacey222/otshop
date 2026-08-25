@@ -1,6 +1,6 @@
 # OTShop
 
-OTShop is the planned control plane for authorized, human-supervised Shopee Video publishing through independently deployed Android workers. Phase 1 architecture and the Phase 2 control-plane foundation are complete. Phase 3 Slices 3.1–3.2 provide immutable media ingest and bounded inspection; datasets and media transformations have not begun.
+OTShop is the planned control plane for authorized, human-supervised Shopee Video publishing through independently deployed Android workers. Phase 1 architecture and the Phase 2 control-plane foundation are complete. Phase 3 Slices 3.1–3.3 provide immutable media ingest, bounded inspection, and one deterministic thumbnail derivative; datasets and video transformations have not begun.
 
 ## Safety boundary
 
@@ -30,6 +30,7 @@ The user-supplied `tutor.zip` is retained unchanged as research input. It contai
 - [Database design](docs/architecture/database.md)
 - [Security and RBAC](docs/architecture/security.md)
 - [Media inspection](docs/architecture/media-inspection.md)
+- [Thumbnail generation](docs/architecture/thumbnail-generation.md)
 - [Publisher contract](docs/architecture/publisher-contract.md)
 - [Job state machine](docs/architecture/job-state-machine.md)
 - [Worker protocol and leases](docs/architecture/worker-protocol.md)
@@ -49,7 +50,7 @@ Prerequisites:
 - Node.js 22.14 or a compatible Node.js 22 release;
 - pnpm 11.22 through Corepack.
 
-Python, ADB, Redis, and Android are not Slice 3.2 runtime dependencies. PostgreSQL 16 and FFprobe are required for authenticated media inspection. FFmpeg transformations are not used in production code; the `ffmpeg` executable is used only to generate the tiny real-inspector test fixture.
+Python, ADB, Redis, and Android are not Slice 3.3 runtime dependencies. PostgreSQL 16, FFprobe, and FFmpeg are required for authenticated media inspection and thumbnail generation. Production FFmpeg use is restricted to one JPEG thumbnail; it does not transcode or normalize video.
 
 Install dependencies from PowerShell at the repository root:
 
@@ -168,6 +169,12 @@ SHA-256 is calculated while staging. Identical content deduplicates to one row a
 `POST /api/media/<mediaAssetId>/inspect` inspects the workspace-owned immutable object through FFprobe. The server streams the trusted `StorageProvider` object to fixed FFprobe stdin arguments; clients cannot provide a filesystem path, executable, command argument, URL, or hash. The default timeout is 15 seconds and stdout/stderr are independently limited to 256 KiB. Configure these server-side with `FFPROBE_EXECUTABLE`, `FFPROBE_TIMEOUT_MS`, and `FFPROBE_MAX_OUTPUT_BYTES`.
 
 The platform-neutral MVP policy accepts a primary H.264 `yuv420p`/`yuvj420p` video stream with optional AAC audio. It validates bounded duration, dimensions, rational frame rate, bitrate, container, and rotation. `READY` is not a Shopee compatibility or malware-safety claim. Permanent incompatibility becomes `REJECTED`; transient storage/process failure becomes retryable `INSPECTION_FAILED`. The original is never modified or automatically transcoded. See [Media inspection](docs/architecture/media-inspection.md) for the complete policy and lifecycle.
+
+## Thumbnail generation
+
+`POST /api/media/<mediaAssetId>/thumbnail` generates exactly one JPEG preview for workspace-owned `READY` media. FFmpeg receives the immutable original through stdin and emits the JPEG through stdout; clients cannot provide paths, URLs, timestamps, dimensions, executable names, or command arguments. The representative point is 10% of duration capped at 10 seconds. The image preserves aspect ratio, is never upscaled, and is bounded to 640 pixels on either axis and 1 MiB by default.
+
+The canonical object is promoted without overwrite to `thumbnails/workspace/<workspace-id>/media/<media-id>.jpg`, then `thumbnailKey` is persisted with an optimistic database claim. Repeated requests validate and reuse the existing object. A promoted object whose database commit was uncertain is preserved and reconciled by a later stale-claim request. Binary serving is deferred; API responses expose safe dimensions, size, MIME type, and availability but never the storage key or filesystem path. See [Thumbnail generation](docs/architecture/thumbnail-generation.md).
 
 ## Continuous integration and required merge checks
 

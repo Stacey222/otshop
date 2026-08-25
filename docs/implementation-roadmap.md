@@ -30,6 +30,8 @@ Slice 3.1 implements only the storage port/local adapter, bounded streaming MP4 
 
 Slice 3.2 adds only bounded FFprobe inspection, normalized existing-schema metadata, a narrow platform-neutral compatibility decision, explicit inspection lifecycle/failure semantics, database concurrency claims, and real Windows/Linux-capable process integration coverage. Thumbnails, transformations, datasets, bulk import, and tags remain later gated slices.
 
+Slice 3.3 adds only one deterministic bounded JPEG thumbnail for `READY` media, fixed-argument FFmpeg execution, strict output validation, immutable workspace-qualified promotion, optimistic cross-process coordination, idempotency, and persistence reconciliation. Video transcoding, additional derivative variants, binary serving, datasets, bulk import, and tags remain later gated slices.
+
 Gate: invalid/missing/duplicate media cases pass; source files are never overwritten; cleanup and retention are documented.
 
 ## Phase 4 — Project engine
