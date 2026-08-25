@@ -19,6 +19,11 @@ import {
   MediaBatchLimitError,
   MediaBatchNotFoundError,
 } from "@/application/media-batches/media-batch-errors";
+import {
+  ProjectArchivedError,
+  ProjectConflictError,
+  ProjectNotFoundError,
+} from "@/application/projects/project-errors";
 
 import { errorResponse, mapErrorToSafeHttp } from "./api-response";
 
@@ -62,6 +67,12 @@ describe("safe API error boundary", () => {
     expect(mapErrorToSafeHttp(new MediaBatchNotFoundError())).toMatchObject({ status: 404 });
     expect(mapErrorToSafeHttp(new MediaBatchConflictError())).toMatchObject({ status: 409 });
     expect(mapErrorToSafeHttp(new MediaBatchLimitError())).toMatchObject({ status: 413 });
+  });
+
+  it("maps project not-found and immutable/conflict errors safely", () => {
+    expect(mapErrorToSafeHttp(new ProjectNotFoundError())).toMatchObject({ status: 404 });
+    expect(mapErrorToSafeHttp(new ProjectArchivedError())).toMatchObject({ status: 409 });
+    expect(mapErrorToSafeHttp(new ProjectConflictError())).toMatchObject({ status: 409 });
   });
 
   it("maps stable error names across production bundle boundaries", () => {

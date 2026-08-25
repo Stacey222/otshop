@@ -95,7 +95,7 @@ The arrows express business flow, not always foreign-key direction. In particula
 | `MediaImportBatch` | Bounded staged media import; user-facing | Workspace | Workspace, creator, optional dataset → batch items | Unique workspace/id; dataset and creator R; explicit bounded lifecycle and optimistic version |
 | `MediaImportBatchItem` | Deterministic per-input import result; user-facing | Workspace + batch | Batch, optional media → none | Unique input index/batch and workspace/id; batch C, media R; bounded explicit outcome |
 | `Schedule` | Scheduling template; user-facing | Workspace | Workspace, creator → projects and runs | Unique name per workspace; references R; enum kind, free-text status/DST policies |
-| `Project` | Publish configuration over dataset/account; user-facing | Workspace | Dataset, account, optional device/schedule, creator → items/jobs | Unique name per workspace; all parents/children R once used; enum publisher, free-text status/caption mode |
+| `Project` | Local future-publish configuration over a Dataset; user-facing | Workspace | Dataset, optional account/device/schedule, creator → items/jobs | Unique name per workspace; explicit DRAFT/READY/ARCHIVED lifecycle, bounded daily target/window, optimistic version; no execution in Slice 3.6 |
 | `ProjectItem` | Stable project materialization of a dataset item; user-facing | Workspace + project | Project, dataset item, media → product joins/jobs | Unique source item and position per project; product joins C, other references R; free-text status |
 | `ProductReference` | Operator-supplied product reference; user-facing | Workspace + account | Account → project-item joins | Partial unique operator reference per account; joins R; enum source, free-text status |
 | `ProjectItemProduct` | Ordered product attachment; user-facing | Project item | Project item + product | Composite PK and unique position; C with item, product R; no status |
@@ -142,7 +142,7 @@ The arrows express business flow, not always foreign-key direction. In particula
 | `MediaImportBatch` | Yes | Yes | Workspace-qualified optional Dataset FK | Creator is global attribution |
 | `MediaImportBatchItem` | Yes | Yes | Workspace-qualified batch and optional media FKs | Input index is unique within the batch |
 | `Schedule` | Yes | Direct root only | Non-null workspace FK and workspace-scoped name | Creator is global attribution |
-| `Project` | Yes | Yes | Workspace-qualified dataset, account, device, and schedule FKs | Semantic graph consistency still needs pre-flight validation |
+| `Project` | Yes | Yes | Workspace-qualified Dataset and optional account/device/schedule FKs | Slice 3.6 validates active Dataset and optional local account; future publish pre-flight remains required |
 | `ProjectItem` | Yes | Yes | Workspace-qualified project, dataset-item, and media FKs | Media equality with dataset item is not DB-proven |
 | `ProductReference` | Yes | Yes | `(workspaceId, accountId)` | Operator reference uniqueness is account/workspace scoped |
 | `ProjectItemProduct` | Yes | Yes | Workspace-qualified project-item and product FKs | Prevents cross-tenant product attachment |
@@ -233,7 +233,8 @@ This inventory excludes ordinary `createdAt`/`updatedAt` audit timestamps. A row
 | `Schedule` | `status`, `dstGapPolicy`, `dstOverlapPolicy` | UNCONSTRAINED TEXT | Scheduler vocabularies deferred |
 | `Schedule` | `nextRunAt`, `endAt` | TIMESTAMP-DERIVED | Scheduler eligibility/window |
 | `Project` | `publisherKind` | CANONICAL ENUM | `PublisherKind` |
-| `Project` | `status`, `captionMode` | UNCONSTRAINED TEXT | Project vocabularies deferred |
+| `Project` | `status` | CONSTRAINED TEXT | `DRAFT`, `READY`, `ARCHIVED` |
+| `Project` | `captionMode` | UNCONSTRAINED TEXT | Template/caption behavior remains deferred; Slice 3.6 uses only the dormant safe default |
 | `ProjectItem` | `status` | UNCONSTRAINED TEXT | Vocabulary deferred |
 | `ProductReference` | `source` | CANONICAL ENUM | `ProductSource` |
 | `ProductReference` | `status` | UNCONSTRAINED TEXT | Vocabulary deferred |
@@ -270,7 +271,7 @@ These columns are structurally present but are not yet controlled vocabularies. 
 | `ShopeeAccount` | `status` | Unconstrained text | Account verification/disable semantics belong to project readiness | Phase 4, before account-management writes |
 | `MediaAsset` | later processing/retention statuses | Unconstrained text | Inspection is finalized, but derivative-processing and retention lifecycle semantics do not exist yet | Later Phase 3 media slices |
 | `Dataset` | `status` | Unconstrained text | Archive/edit behavior is not implemented | Phase 3 |
-| `Project` | `status`, `captionMode` | Unconstrained text | Pause/readiness/template behavior is not implemented | Phase 4 |
+| `Project` | `captionMode` and execution policy fields | Unconstrained/dormant | Caption templates, retry/rate profiles, and publish pre-flight are not implemented | Later project/job slices |
 | `ProjectItem`, `ProductReference` | `status` | Unconstrained text | Project-item/product lifecycle is not implemented | Phase 4 |
 | `PublishAttempt` | `status`, `errorCode` | Unconstrained text | Attempt protocol/recovery vocabulary belongs to the job engine | Phase 5 |
 | `PublishResult` | `outcome`, `statusValue` | Unconstrained text | Result vocabulary depends on verified adapter semantics | Phase 5 |

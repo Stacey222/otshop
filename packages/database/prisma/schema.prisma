@@ -615,32 +615,36 @@ model Schedule {
 }
 
 model Project {
-  id                     String        @id @db.Uuid
-  workspaceId            String        @map("workspace_id") @db.Uuid
-  datasetId              String        @map("dataset_id") @db.Uuid
-  accountId              String        @map("account_id") @db.Uuid
-  preferredDeviceId      String?       @map("preferred_device_id") @db.Uuid
-  scheduleId             String?       @map("schedule_id") @db.Uuid
-  name                   String        @db.Text
-  status                 String        @db.Text
-  publisherKind          PublisherKind @map("publisher_kind")
-  captionMode            String        @map("caption_mode") @db.Text
-  captionTemplate        String?       @map("caption_template") @db.Text
-  hashtagTemplate        String?       @map("hashtag_template") @db.Text
-  minimumIntervalSeconds Int           @map("minimum_interval_seconds")
-  dailyLimit             Int?          @map("daily_limit")
-  maxAttempts            Int           @map("max_attempts")
-  retryPolicy            Json          @map("retry_policy") @db.JsonB
-  createdByUserId        String        @map("created_by_user_id") @db.Uuid
-  createdAt              DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt              DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
-  version                Int           @default(1)
-  workspace              Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
-  dataset                Dataset       @relation(fields: [workspaceId, datasetId], references: [workspaceId, id], onDelete: Restrict)
-  account                ShopeeAccount @relation(fields: [workspaceId, accountId], references: [workspaceId, id], onDelete: Restrict)
-  preferredDevice        Device?       @relation(fields: [workspaceId, preferredDeviceId], references: [workspaceId, id], onDelete: Restrict)
-  schedule               Schedule?     @relation(fields: [workspaceId, scheduleId], references: [workspaceId, id], onDelete: Restrict)
-  createdBy              User          @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
+  id                     String         @id @db.Uuid
+  workspaceId            String         @map("workspace_id") @db.Uuid
+  datasetId              String         @map("dataset_id") @db.Uuid
+  accountId              String?        @map("account_id") @db.Uuid
+  preferredDeviceId      String?        @map("preferred_device_id") @db.Uuid
+  scheduleId             String?        @map("schedule_id") @db.Uuid
+  name                   String         @db.Text
+  description            String?        @db.Text
+  status                 String         @db.Text
+  publisherKind          PublisherKind? @map("publisher_kind")
+  captionMode            String         @default("DATASET_OVERRIDE") @map("caption_mode") @db.Text
+  captionTemplate        String?        @map("caption_template") @db.Text
+  hashtagTemplate        String?        @map("hashtag_template") @db.Text
+  minimumIntervalSeconds Int            @default(0) @map("minimum_interval_seconds")
+  dailyTarget            Int?           @map("daily_target")
+  postingTimezone        String?        @map("posting_timezone") @db.Text
+  postingWindowStart     String?        @map("posting_window_start") @db.VarChar(5)
+  postingWindowEnd       String?        @map("posting_window_end") @db.VarChar(5)
+  maxAttempts            Int            @default(1) @map("max_attempts")
+  retryPolicy            Json           @default("{}") @map("retry_policy") @db.JsonB
+  createdByUserId        String         @map("created_by_user_id") @db.Uuid
+  createdAt              DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+  version                Int            @default(1)
+  workspace              Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  dataset                Dataset        @relation(fields: [workspaceId, datasetId], references: [workspaceId, id], onDelete: Restrict)
+  account                ShopeeAccount? @relation(fields: [workspaceId, accountId], references: [workspaceId, id], onDelete: Restrict)
+  preferredDevice        Device?        @relation(fields: [workspaceId, preferredDeviceId], references: [workspaceId, id], onDelete: Restrict)
+  schedule               Schedule?      @relation(fields: [workspaceId, scheduleId], references: [workspaceId, id], onDelete: Restrict)
+  createdBy              User           @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
   items                  ProjectItem[]
   publishJobs            PublishJob[]
 
@@ -650,6 +654,7 @@ model Project {
   @@index([workspaceId, accountId], map: "projects_account_idx")
   @@index([workspaceId, preferredDeviceId], map: "projects_preferred_device_idx")
   @@index([workspaceId, scheduleId], map: "projects_schedule_idx")
+  @@index([workspaceId, status, createdAt], map: "projects_workspace_status_created_idx")
   @@index([createdByUserId], map: "projects_creator_idx")
   @@map("projects")
 }

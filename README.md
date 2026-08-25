@@ -1,6 +1,6 @@
 # OTShop
 
-OTShop is the planned control plane for authorized, human-supervised Shopee Video publishing through independently deployed Android workers. Phase 1 architecture and the Phase 2 control-plane foundation are complete. Phase 3 Slices 3.1–3.5 provide immutable media ingest, bounded inspection, one deterministic thumbnail derivative, workspace-scoped ordered datasets, and bounded staged batch import; projects and video transformations have not begun.
+OTShop is the planned control plane for authorized, human-supervised Shopee Video publishing through independently deployed Android workers. Phase 1 architecture and the Phase 2 control-plane foundation are complete. Phase 3 Slices 3.1–3.6 provide immutable media ingest, bounded inspection, one deterministic thumbnail derivative, workspace-scoped ordered datasets, bounded staged batch import, and local Project configuration; scheduling execution and video transformations have not begun.
 
 ## Safety boundary
 
@@ -33,6 +33,7 @@ The user-supplied `tutor.zip` is retained unchanged as research input. It contai
 - [Thumbnail generation](docs/architecture/thumbnail-generation.md)
 - [Dataset foundation](docs/architecture/datasets.md)
 - [Bounded batch media import](docs/architecture/media-batch-import.md)
+- [Project configuration foundation](docs/architecture/project-configuration.md)
 - [Publisher contract](docs/architecture/publisher-contract.md)
 - [Job state machine](docs/architecture/job-state-machine.md)
 - [Worker protocol and leases](docs/architecture/worker-protocol.md)
@@ -185,6 +186,10 @@ Protected `/api/datasets` endpoints create, list, read, update, and archive work
 ## Bounded batch media import
 
 Protected staged batch endpoints create one dedicated Dataset, stream one file per request through the canonical ingest and inspection services, and finalize READY results in explicit input order. The server never accepts an arbitrary folder path. File count, aggregate bytes, individual bytes, metadata, active uploads, and result pages are bounded. Partial failures preserve successful immutable media, and repeated finalization reconciles without duplicate media or Dataset items. See [Bounded batch media import](docs/architecture/media-batch-import.md).
+
+## Project configuration foundation
+
+Protected `/api/projects` endpoints create, list, read, update, validate, and archive workspace-owned Project configuration. A Project references one active Dataset and may hold a bounded daily target, optional local posting window with an IANA timezone, and an optional local future-account reference. READY is a validation-only locked state: it creates no schedules, jobs, queues, worker work, Android activity, or Shopee action. See [Project configuration foundation](docs/architecture/project-configuration.md).
 
 ## Continuous integration and required merge checks
 

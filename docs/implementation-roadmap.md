@@ -36,6 +36,8 @@ Slice 3.4 adds only workspace-scoped dataset create/read/list/update/archive, or
 
 Slice 3.5 adds only a workspace-scoped staged batch protocol, bounded one-file streaming requests, canonical ingest and inspection orchestration, deterministic partial-failure reporting, SHA-256 reuse, and idempotent assembly into one new Dataset. Folder UI, server filesystem scanning, cancellation, generalized retries, tags, projects, products, accounts, daily targets, scheduling, workers, Android, Shopee, and publishing remain later gated slices.
 
+Slice 3.6 adds only workspace-scoped Project configuration over one active Dataset, a DRAFT/READY/ARCHIVED lifecycle, bounded daily target, optional validated local posting window and IANA timezone, an optional local future-account reference, keyset pagination, and optimistic concurrency. ProjectItem materialization, products, captions/templates, posting days, scheduler execution, jobs, workers, Android, Shopee, and publishing remain later gated slices.
+
 Gate: invalid/missing/duplicate media cases pass; source files are never overwritten; cleanup and retention are documented.
 
 ## Phase 4 — Project engine

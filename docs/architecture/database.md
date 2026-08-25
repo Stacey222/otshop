@@ -174,9 +174,9 @@ The item row contains a server UUID, composite workspace and batch ownership, op
 
 ### `projects`
 
-`id uuid` PK; `workspace_id`, `dataset_id`, `account_id` non-null composite FKs; `preferred_device_id uuid` nullable composite FK; `schedule_id uuid` nullable composite FK; `name text` non-null; `status text` non-null; `publisher_kind publisher_kind` non-null; `caption_mode text` non-null; `caption_template text` nullable; `hashtag_template text` nullable; `minimum_interval_seconds integer` non-null check >= 0; `daily_limit integer` nullable check > 0; `max_attempts integer` non-null check between 1 and configured ceiling; `retry_policy jsonb` non-null schema-validated; `created_by_user_id uuid` non-null; timestamps; `version integer` non-null. Project status/caption vocabularies are deferred to Phase 4.
+`id uuid` PK; `workspace_id`, `dataset_id` non-null composite FK; `account_id`, `preferred_device_id`, and `schedule_id` nullable composite FKs; bounded `name` and nullable `description`; `status` constrained to `DRAFT | READY | ARCHIVED`; nullable `daily_target` constrained to `1..50`; nullable atomic posting timezone/start/end window; dormant nullable publisher and existing caption/retry fields; `created_by_user_id uuid` non-null; timestamps; `version integer` non-null. Slice 3.6 exposes only local configuration fields and leaves execution-oriented fields dormant.
 
-Unique `(workspace_id, name)` and `(workspace_id, id)`. Checks require template text for template mode. Delete: `RESTRICT` after jobs exist; archive instead.
+Unique `(workspace_id, name)` and `(workspace_id, id)`. The posting window is either wholly absent or strict `HH:mm` with start before end; application validation proves the timezone is canonical IANA. READY requires an active Dataset containing at least one item backed by a `READY` MediaAsset, plus a daily target. Delete remains unavailable; archive instead.
 
 ### `project_items`
 

@@ -14,6 +14,7 @@ import { POST as selectWorkspaceRoute } from "../src/app/api/workspaces/select/r
 import { POST as executeMockPublisherRoute } from "../src/app/api/publishers/mock/execute/route";
 import { POST as mediaIngestRoute } from "../src/app/api/media/route";
 import { POST as mediaBatchCreateRoute } from "../src/app/api/media/batches/route";
+import { POST as projectCreateRoute } from "../src/app/api/projects/route";
 import { POST as mediaInspectionRoute } from "../src/app/api/media/[mediaAssetId]/inspect/route";
 import { POST as mediaThumbnailRoute } from "../src/app/api/media/[mediaAssetId]/thumbnail/route";
 import { GET as datasetsRoute, POST as createDatasetRoute } from "../src/app/api/datasets/route";
@@ -187,6 +188,17 @@ describe("database-backed authentication and authorization", () => {
             method: "POST",
             headers: { "Content-Type": "application/json", Origin: "http://localhost:3000" },
             body: JSON.stringify({ name: "Unauthorized batch" }),
+          }),
+        )
+      ).status,
+    ).toBe(401);
+    expect(
+      (
+        await projectCreateRoute(
+          new NextRequest("http://localhost:3000/api/projects", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Origin: "http://localhost:3000" },
+            body: JSON.stringify({ name: "Unauthorized project", datasetId: id() }),
           }),
         )
       ).status,

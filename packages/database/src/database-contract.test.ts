@@ -67,6 +67,15 @@ const mediaImportBatchMigration = readFileSync(
   ),
   "utf8",
 );
+const projectConfigurationMigration = readFileSync(
+  fileURLToPath(
+    new URL(
+      "../prisma/migrations/20260825210000_project_configuration_foundation/migration.sql",
+      import.meta.url,
+    ),
+  ),
+  "utf8",
+);
 const developerGuide = readFileSync(
   fileURLToPath(new URL("../../../docs/architecture/database-developer-guide.md", import.meta.url)),
   "utf8",
@@ -153,6 +162,12 @@ describe("database contract drift protection", () => {
       'REFERENCES "media_import_batches"("workspace_id", "id")',
     );
     expect(mediaImportBatchMigration).toContain('REFERENCES "media_assets"("workspace_id", "id")');
+    expect(projectConfigurationMigration).toContain(
+      'RENAME COLUMN "daily_limit" TO "daily_target"',
+    );
+    expect(projectConfigurationMigration).toContain('"projects_status_check"');
+    expect(projectConfigurationMigration).toContain('"daily_target" BETWEEN 1 AND 50');
+    expect(projectConfigurationMigration).toContain('"projects_posting_window_check"');
   });
 
   it("keeps the developer-guide model inventories synchronized with Prisma", () => {

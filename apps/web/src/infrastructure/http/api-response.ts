@@ -49,6 +49,7 @@ export function mapErrorToSafeHttp(error: unknown): SafeHttpError {
       "DATASET_ITEM_NOT_FOUND",
       "MEDIA_BATCH_NOT_FOUND",
       "MEDIA_NOT_FOUND",
+      "PROJECT_NOT_FOUND",
     ].includes(applicationError.data.code)
       ? 404
       : [
@@ -62,6 +63,11 @@ export function mapErrorToSafeHttp(error: unknown): SafeHttpError {
             "MEDIA_BATCH_NOT_FINALIZABLE",
             "MEDIA_INSPECTION_IN_PROGRESS",
             "MEDIA_NOT_READY",
+            "PROJECT_ARCHIVED",
+            "PROJECT_CONFLICT",
+            "PROJECT_INVALID_ACCOUNT",
+            "PROJECT_INVALID_DATASET",
+            "PROJECT_NOT_CONFIGURABLE",
             "THUMBNAIL_GENERATION_IN_PROGRESS",
           ].includes(applicationError.data.code)
         ? 409

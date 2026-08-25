@@ -10,4 +10,5 @@ export * from "./media";
 export * from "./media-batches";
 export * from "./json-schema";
 export * from "./protocol";
+export * from "./projects";
 export * from "./publisher";
