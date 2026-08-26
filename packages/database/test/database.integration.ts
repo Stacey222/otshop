@@ -333,8 +333,10 @@ describe("PostgreSQL database invariants", () => {
 
     const migratedStates = await prisma.$queryRaw<Array<{ value: string }>>(Prisma.sql`
       SELECT e.enumlabel AS value
-      FROM pg_enum e JOIN pg_type t ON t.oid = e.enumtypid
-      WHERE t.typname = 'publish_job_status'
+      FROM pg_enum e
+      JOIN pg_type t ON t.oid = e.enumtypid
+      JOIN pg_namespace n ON n.oid = t.typnamespace
+      WHERE t.typname = 'publish_job_status' AND n.nspname = current_schema()
       ORDER BY e.enumsortorder
     `);
     expect(migratedStates.map(({ value }) => value)).toEqual(publishJobStates);

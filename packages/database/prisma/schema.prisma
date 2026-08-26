@@ -722,7 +722,7 @@ model ProjectItemProduct {
   productReference   ProductReference @relation(fields: [workspaceId, productReferenceId], references: [workspaceId, id], onDelete: Restrict)
 
   @@id([projectItemId, productReferenceId])
-  @@unique([projectItemId, position], map: "project_item_products_position_key")
+  @@unique([projectItemId], map: "project_item_products_project_item_key")
   @@index([workspaceId, productReferenceId], map: "project_item_products_product_idx")
   @@map("project_item_products")
 }

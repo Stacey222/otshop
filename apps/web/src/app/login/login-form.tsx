@@ -7,6 +7,7 @@ export function LoginForm() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [passwordVisible, setPasswordVisible] = useState(false);
 
   async function submit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
@@ -32,13 +33,24 @@ export function LoginForm() {
       <label htmlFor="email">Email</label>
       <input id="email" name="email" type="email" autoComplete="username" required />
       <label htmlFor="password">Password</label>
-      <input
-        id="password"
-        name="password"
-        type="password"
-        autoComplete="current-password"
-        required
-      />
+      <div className="password-input">
+        <input
+          id="password"
+          name="password"
+          type={passwordVisible ? "text" : "password"}
+          autoComplete="current-password"
+          required
+        />
+        <button
+          className="secondary-button password-visibility-button"
+          type="button"
+          aria-label={passwordVisible ? "Hide password" : "Show password"}
+          aria-pressed={passwordVisible}
+          onClick={() => setPasswordVisible((visible) => !visible)}
+        >
+          {passwordVisible ? "Hide" : "Show"}
+        </button>
+      </div>
       {error === null ? null : (
         <p className="form-error" role="alert">
           {error}

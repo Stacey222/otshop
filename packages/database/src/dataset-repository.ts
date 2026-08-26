@@ -100,6 +100,15 @@ const toItem = (item: DatasetItemWithMedia): DatasetItemRecord => ({
 const isUniqueConflict = (error: unknown): boolean =>
   error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
 
+const isForeignKeyConflict = (error: unknown): boolean =>
+  error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2003";
+
+const isEmptyObject = (value: PrismaNamespace.JsonValue): boolean =>
+  typeof value === "object" &&
+  value !== null &&
+  !Array.isArray(value) &&
+  Object.keys(value).length === 0;
+
 const findDataset = (tx: Transaction, workspaceId: string, datasetId: string) =>
   tx.dataset.findUnique({
     where: { workspaceId_id: { workspaceId, id: datasetId } },
@@ -399,33 +408,70 @@ export class DatasetRepository {
     readonly itemId: string;
     readonly expectedVersion: number;
   }) {
-    return this.client.$transaction(async (tx) => {
-      const current = await findDataset(tx, input.workspaceId, input.datasetId);
-      const state = mutationState(current, input.expectedVersion);
-      if (state !== null) return { state } as const;
-      const item = await tx.datasetItem.findUnique({
-        where: { workspaceId_id: { workspaceId: input.workspaceId, id: input.itemId } },
-        select: { datasetId: true },
+    try {
+      return await this.client.$transaction(async (tx) => {
+        const current = await findDataset(tx, input.workspaceId, input.datasetId);
+        const state = mutationState(current, input.expectedVersion);
+        if (state !== null) return { state } as const;
+        const item = await tx.datasetItem.findUnique({
+          where: { workspaceId_id: { workspaceId: input.workspaceId, id: input.itemId } },
+          select: { datasetId: true },
+        });
+        if (item?.datasetId !== input.datasetId) return { state: "ITEM_NOT_FOUND" } as const;
+        const materialized = await tx.projectItem.findMany({
+          where: { workspaceId: input.workspaceId, datasetItemId: input.itemId },
+          select: {
+            id: true,
+            caption: true,
+            status: true,
+            customFields: true,
+            project: { select: { status: true } },
+            _count: { select: { products: true, publishJobs: true } },
+          },
+        });
+        if (
+          materialized.some(
+            (projectItem) =>
+              projectItem.project.status !== "DRAFT" ||
+              projectItem.status !== "ACTIVE" ||
+              projectItem.caption !== null ||
+              !isEmptyObject(projectItem.customFields) ||
+              projectItem._count.products !== 0 ||
+              projectItem._count.publishJobs !== 0,
+          )
+        ) {
+          return { state: "PROJECT_ITEM_CONFLICT" } as const;
+        }
+        if (!(await claimMutation(tx, input.workspaceId, input.datasetId, input.expectedVersion)))
+          return { state: "CONFLICT" } as const;
+        if (materialized.length > 0) {
+          await tx.projectItem.deleteMany({
+            where: {
+              workspaceId: input.workspaceId,
+              id: { in: materialized.map(({ id }) => id) },
+            },
+          });
+        }
+        await tx.datasetItem.delete({ where: { id: input.itemId } });
+        const remaining = await tx.datasetItem.findMany({
+          where: { workspaceId: input.workspaceId, datasetId: input.datasetId },
+          orderBy: [{ position: "asc" }, { id: "asc" }],
+          select: { id: true },
+        });
+        await normalizePositions(
+          tx,
+          input.workspaceId,
+          input.datasetId,
+          remaining.map(({ id }) => id),
+        );
+        const dataset = await findDataset(tx, input.workspaceId, input.datasetId);
+        if (dataset === null) return { state: "NOT_FOUND" } as const;
+        return { state: "REMOVED", dataset: toDataset(dataset) } as const;
       });
-      if (item?.datasetId !== input.datasetId) return { state: "ITEM_NOT_FOUND" } as const;
-      if (!(await claimMutation(tx, input.workspaceId, input.datasetId, input.expectedVersion)))
-        return { state: "CONFLICT" } as const;
-      await tx.datasetItem.delete({ where: { id: input.itemId } });
-      const remaining = await tx.datasetItem.findMany({
-        where: { workspaceId: input.workspaceId, datasetId: input.datasetId },
-        orderBy: [{ position: "asc" }, { id: "asc" }],
-        select: { id: true },
-      });
-      await normalizePositions(
-        tx,
-        input.workspaceId,
-        input.datasetId,
-        remaining.map(({ id }) => id),
-      );
-      const dataset = await findDataset(tx, input.workspaceId, input.datasetId);
-      if (dataset === null) return { state: "NOT_FOUND" } as const;
-      return { state: "REMOVED", dataset: toDataset(dataset) } as const;
-    });
+    } catch (error) {
+      if (isForeignKeyConflict(error)) return { state: "PROJECT_ITEM_CONFLICT" } as const;
+      throw error;
+    }
   }
 
   async reorder(input: {

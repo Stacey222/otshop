@@ -1,8 +1,11 @@
 export * from "./auth-repository";
 export * from "./account-product-repositories";
 export * from "./dataset-repository";
+export * from "./developer-access";
 export * from "./media-asset-repository";
 export * from "./media-import-batch-repository";
 export * from "./project-repository";
+export * from "./project-item-repository";
+export * from "./project-item-product-repository";
 export { disconnectDatabaseClient, getDatabaseClient } from "./client";
 export { isDatabaseReady } from "./readiness";

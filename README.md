@@ -35,6 +35,7 @@ The user-supplied `tutor.zip` is retained unchanged as research input. It contai
 - [Bounded batch media import](docs/architecture/media-batch-import.md)
 - [Project configuration foundation](docs/architecture/project-configuration.md)
 - [Shopee account and affiliate product configuration](docs/architecture/account-affiliate-product-configuration.md)
+- [ProjectItem materialization foundation](docs/architecture/project-item-materialization.md)
 - [Publisher contract](docs/architecture/publisher-contract.md)
 - [Job state machine](docs/architecture/job-state-machine.md)
 - [Worker protocol and leases](docs/architecture/worker-protocol.md)
@@ -108,25 +109,49 @@ pnpm dev
 
 Open `http://localhost:3000`. Liveness at `http://localhost:3000/api/health` never requires PostgreSQL. Readiness at `http://localhost:3000/api/ready` returns HTTP 200 with `ready` only when the configured database responds; missing or unavailable database configuration returns a sanitized HTTP 503.
 
-## Initial super administrator
+## First Local Login
 
-There is no public bootstrap endpoint and no default credential. Apply migrations to an authorized empty/development database, set `DATABASE_URL`, and supply the password only through a temporary process environment variable. PowerShell usage:
+There is no public bootstrap endpoint, default administrator, default password, or authentication bypass. PostgreSQL must already be running with a dedicated database and database user that the operator is authorized to use. Repository commands read `DATABASE_URL` from the current shell; Next.js development also reads the ignored `apps/web/.env.local`. Copying `.env.example` does not provision PostgreSQL and its placeholder password is not a usable credential.
+
+From the repository root, set the authorized development URL in the current PowerShell session without committing it, then run the safe diagnostic:
+
+```powershell
+$env:DATABASE_URL = "postgresql://<authorized-user>:<operator-password>@localhost:5432/<development-database>"
+pnpm dev:doctor
+```
+
+`dev:doctor` never prints the URL or database password. It checks the application origin, FFmpeg/FFprobe, database connectivity, committed migrations, and one-time bootstrap state. Follow its category and action. For example, `DATABASE_AUTH_FAILED` means the configured database credentials need correction; do not reset PostgreSQL authentication or edit global `pg_hba.conf`.
+
+Apply committed migrations and confirm bootstrap readiness:
+
+```powershell
+pnpm db:migrate:deploy
+pnpm dev:doctor
+```
+
+The expected final category on a new database is `READY_FOR_BOOTSTRAP`. Supply the first administrator password only through a temporary process environment variable:
 
 ```powershell
 $bootstrapSecret = Read-Host "Initial SUPER_ADMIN password" -AsSecureString
 $bootstrapPointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($bootstrapSecret)
 try {
   $env:OTSHOP_BOOTSTRAP_PASSWORD = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bootstrapPointer)
-  pnpm auth:bootstrap -- --email "admin@example.com" --display-name "Initial administrator"
+  pnpm auth:bootstrap -- --email "<operator-defined-email>" --display-name "<administrator-name>"
 } finally {
   Remove-Item Env:OTSHOP_BOOTSTRAP_PASSWORD -ErrorAction SilentlyContinue
   [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bootstrapPointer)
 }
 ```
 
-The password must contain at least 12 characters with upper-case, lower-case, number, and symbol. The command succeeds only while no `SUPER_ADMIN` grant exists and transactionally creates the user, Argon2id credential, system grant, and audit record. Repeated execution fails without overwriting an administrator.
+The password must contain at least 12 characters with upper-case, lower-case, number, and symbol. The command succeeds only while no `SUPER_ADMIN` grant exists and transactionally creates the user, Argon2id credential, system grant, and audit record. Repeated execution reports `SUPER_ADMIN_ALREADY_EXISTS` without overwriting an administrator. Run `pnpm dev:doctor` again; `READY_FOR_LOGIN` confirms the database-side prerequisite.
 
-Start the app and visit `http://localhost:3000/login`. Login creates a revocable eight-hour database session. Select an active workspace at `/workspaces`; selection validates membership and rotates the session. Logout revokes the database row before clearing cookies. Authorization is server-side and uses `ROLE_PERMISSIONS`; hidden UI is never treated as access control.
+Ensure the same `DATABASE_URL` and `APP_URL=http://localhost:3000` are present in the ignored `apps/web/.env.local`, then start the app:
+
+```powershell
+pnpm dev
+```
+
+Visit `http://localhost:3000/login` and use the operator-defined bootstrap email and password. Login creates a revocable eight-hour database session. A new SUPER_ADMIN can reach the authenticated shell; the dashboard additionally requires an existing active workspace membership and will redirect to `/workspaces` when none exists. Workspace provisioning remains a separate administrative capability. Selection validates membership and rotates the session. Logout revokes the database row before clearing cookies. Authorization is server-side and uses `ROLE_PERMISSIONS`; hidden UI is never treated as access control.
 
 ## Request correlation and safe diagnostics
 

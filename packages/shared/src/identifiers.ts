@@ -64,6 +64,9 @@ export type MediaImportBatchItemId = z.infer<typeof MediaImportBatchItemIdSchema
 export const ProjectIdSchema = identifierSchema("ProjectId");
 export type ProjectId = z.infer<typeof ProjectIdSchema>;
 
+export const ProjectItemIdSchema = identifierSchema("ProjectItemId");
+export type ProjectItemId = z.infer<typeof ProjectItemIdSchema>;
+
 export const PublishJobIdSchema = identifierSchema("PublishJobId");
 export type PublishJobId = z.infer<typeof PublishJobIdSchema>;
 

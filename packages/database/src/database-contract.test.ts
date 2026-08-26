@@ -85,6 +85,24 @@ const accountProductConfigurationMigration = readFileSync(
   ),
   "utf8",
 );
+const projectItemMaterializationMigration = readFileSync(
+  fileURLToPath(
+    new URL(
+      "../prisma/migrations/20260825233000_project_item_materialization_foundation/migration.sql",
+      import.meta.url,
+    ),
+  ),
+  "utf8",
+);
+const projectItemProductAssignmentMigration = readFileSync(
+  fileURLToPath(
+    new URL(
+      "../prisma/migrations/20260826090000_project_item_product_assignment_foundation/migration.sql",
+      import.meta.url,
+    ),
+  ),
+  "utf8",
+);
 const developerGuide = readFileSync(
   fileURLToPath(new URL("../../../docs/architecture/database-developer-guide.md", import.meta.url)),
   "utf8",
@@ -187,6 +205,22 @@ describe("database contract drift protection", () => {
       "WHERE \"status\" IN ('UNVERIFIED', 'CONFIGURED')",
     );
     expect(accountProductConfigurationMigration).not.toMatch(
+      /password|cookie|otp|access_token|refresh_token/iu,
+    );
+    expect(projectItemMaterializationMigration).toContain('"project_items_status_check"');
+    expect(projectItemMaterializationMigration).toContain(
+      'DROP INDEX "project_items_project_position_key"',
+    );
+    expect(projectItemMaterializationMigration).toContain("DEFERRABLE INITIALLY IMMEDIATE");
+    expect(projectItemMaterializationMigration).toContain("SET \"status\" = 'ARCHIVED'");
+    expect(projectItemProductAssignmentMigration).toContain(
+      'CONSTRAINT "project_item_products_project_item_key"',
+    );
+    expect(projectItemProductAssignmentMigration).toContain(
+      'CONSTRAINT "project_item_products_primary_position_check"',
+    );
+    expect(projectItemProductAssignmentMigration).toContain('CHECK ("position" = 0)');
+    expect(projectItemProductAssignmentMigration).not.toMatch(
       /password|cookie|otp|access_token|refresh_token/iu,
     );
   });

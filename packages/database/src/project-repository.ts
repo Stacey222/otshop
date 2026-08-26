@@ -78,6 +78,68 @@ const postingWindowValid = (project: ProjectWithDataset): boolean => {
   }).success;
 };
 
+const materializedItemsReady = async (
+  tx: Transaction,
+  workspaceId: string,
+  projectId: string,
+  datasetId: string,
+  accountId: string | null,
+): Promise<boolean> => {
+  const [sources, materialized] = await Promise.all([
+    tx.datasetItem.findMany({
+      where: { workspaceId, datasetId },
+      orderBy: [{ position: "asc" }, { id: "asc" }],
+      select: {
+        id: true,
+        mediaAssetId: true,
+        position: true,
+        mediaAsset: { select: { status: true } },
+      },
+    }),
+    tx.projectItem.findMany({
+      where: { workspaceId, projectId },
+      orderBy: [{ position: "asc" }, { id: "asc" }],
+      select: {
+        datasetItemId: true,
+        mediaAssetId: true,
+        position: true,
+        status: true,
+        products: {
+          select: {
+            position: true,
+            productReference: { select: { accountId: true, source: true, status: true } },
+          },
+        },
+      },
+    }),
+  ]);
+  return (
+    sources.length > 0 &&
+    materialized.length === sources.length &&
+    sources.every((source, index) => {
+      const item = materialized[index];
+      const assignment = item?.products[0];
+      const assignmentValid =
+        item !== undefined &&
+        item.products.length <= 1 &&
+        (assignment === undefined ||
+          (assignment.position === 0 &&
+            assignment.productReference.status === "ACTIVE" &&
+            assignment.productReference.source === "MANUAL" &&
+            accountId !== null &&
+            assignment.productReference.accountId === accountId));
+      return (
+        source.mediaAsset.status === "READY" &&
+        item?.status === "ACTIVE" &&
+        item.datasetItemId === source.id &&
+        item.mediaAssetId === source.mediaAssetId &&
+        item.position === source.position &&
+        assignmentValid
+      );
+    })
+  );
+};
+
 const mutationState = (
   project: ProjectWithDataset | null,
   expectedVersion: number,
@@ -198,6 +260,18 @@ export class ProjectRepository {
           ) {
             return { state: "INVALID_ACCOUNT" } as const;
           }
+          if (input.accountId !== undefined) {
+            const incompatibleAssignments = await tx.projectItemProduct.count({
+              where: {
+                workspaceId: input.workspaceId,
+                projectItem: { projectId: input.projectId },
+                ...(input.accountId === null
+                  ? {}
+                  : { productReference: { accountId: { not: input.accountId } } }),
+              },
+            });
+            if (incompatibleAssignments > 0) return { state: "INVALID_ACCOUNT" } as const;
+          }
           const updated = await tx.project.updateMany({
             where: {
               id: input.projectId,
@@ -249,19 +323,19 @@ export class ProjectRepository {
           const current = await findProject(tx, input.workspaceId, input.projectId);
           const state = mutationState(current, input.expectedVersion);
           if (state !== null) return { state } as const;
-          const eligibleItems = await tx.datasetItem.count({
-            where: {
-              workspaceId: input.workspaceId,
-              datasetId: current!.datasetId,
-              mediaAsset: { status: "READY" },
-            },
-          });
           if (
             current!.status !== "DRAFT" ||
             current!.dailyTarget === null ||
             current!.dataset.status !== "ACTIVE" ||
-            eligibleItems < 1 ||
-            !postingWindowValid(current!)
+            !(await materializedItemsReady(
+              tx,
+              input.workspaceId,
+              input.projectId,
+              current!.datasetId,
+              current!.accountId,
+            )) ||
+            !postingWindowValid(current!) ||
+            !(await accountExists(tx, input.workspaceId, current!.accountId))
           ) {
             return { state: "NOT_CONFIGURABLE" } as const;
           }

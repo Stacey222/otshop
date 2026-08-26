@@ -1,10 +1,23 @@
-import { AuthenticationRepository, disconnectDatabaseClient } from "@otshop/database";
+import {
+  AuthenticationRepository,
+  disconnectDatabaseClient,
+  inspectDeveloperAccessDatabase,
+} from "@otshop/database";
 
 import { Argon2idPasswordHasher } from "../src/application/auth/password";
 import {
   BootstrapInputSchema,
   SuperAdminBootstrapService,
 } from "../src/application/auth/bootstrap-service";
+import {
+  databaseUrlConfiguration,
+  diagnosticAdvice,
+  requiredMigrationNames,
+} from "./developer-access-cli";
+
+class BootstrapCliError extends Error {
+  override readonly name = "BootstrapCliError";
+}
 
 const argument = (name: string): string | undefined => {
   const index = process.argv.indexOf(name);
@@ -18,9 +31,25 @@ async function main(): Promise<void> {
     password: process.env.OTSHOP_BOOTSTRAP_PASSWORD,
   });
   if (!parsed.success) {
-    throw new Error(
-      "Usage: set OTSHOP_BOOTSTRAP_PASSWORD, then run with --email and --display-name; password must be 12+ characters with upper, lower, number, and symbol",
+    throw new BootstrapCliError(
+      "INVALID_BOOTSTRAP_INPUT: set OTSHOP_BOOTSTRAP_PASSWORD, then provide --email and --display-name; the password must be 12+ characters with upper, lower, number, and symbol",
     );
+  }
+
+  const databaseUrl = databaseUrlConfiguration(process.env.DATABASE_URL);
+  if (databaseUrl !== "DATABASE_URL_READY") {
+    throw new BootstrapCliError(`${databaseUrl}: ${diagnosticAdvice(databaseUrl)}`);
+  }
+  const preflight = await inspectDeveloperAccessDatabase({
+    requiredMigrations: await requiredMigrationNames(),
+  });
+  if (preflight.code === "READY_FOR_LOGIN") {
+    throw new BootstrapCliError(
+      "SUPER_ADMIN_ALREADY_EXISTS: bootstrap is one-time; sign in or use the documented recovery process",
+    );
+  }
+  if (preflight.code !== "READY_FOR_BOOTSTRAP") {
+    throw new BootstrapCliError(`${preflight.code}: ${diagnosticAdvice(preflight.code)}`);
   }
 
   const service = new SuperAdminBootstrapService(
@@ -38,9 +67,9 @@ try {
 } catch (error) {
   const message =
     error instanceof Error &&
-    (error.name === "BootstrapAlreadyCompletedError" || error.message.startsWith("Usage:"))
+    (error.name === "BootstrapAlreadyCompletedError" || error.name === "BootstrapCliError")
       ? error.message
-      : "Bootstrap failed safely; no administrator was created";
+      : "BOOTSTRAP_PERSISTENCE_FAILED: bootstrap failed safely; no administrator was created";
   process.stderr.write(`${message}\n`);
   process.exitCode = 1;
 } finally {

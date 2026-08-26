@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { DatasetIdSchema, ShopeeAccountIdSchema } from "./identifiers";
+import { DatasetIdSchema, ProductReferenceIdSchema, ShopeeAccountIdSchema } from "./identifiers";
 
 export const PROJECT_DEFAULT_PAGE_SIZE = 25;
 export const PROJECT_MAX_PAGE_SIZE = 100;
@@ -12,6 +12,10 @@ export const PROJECT_DAILY_TARGET_MAX = 50;
 export const projectStatuses = ["DRAFT", "READY", "ARCHIVED"] as const;
 export const ProjectStatusSchema = z.enum(projectStatuses);
 export type ProjectStatus = z.infer<typeof ProjectStatusSchema>;
+
+export const projectItemStatuses = ["ACTIVE", "ARCHIVED"] as const;
+export const ProjectItemStatusSchema = z.enum(projectItemStatuses);
+export type ProjectItemStatus = z.infer<typeof ProjectItemStatusSchema>;
 
 const withoutUnsafeControls = <T extends z.ZodString>(schema: T) =>
   schema.refine((value) => !/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(value));
@@ -96,6 +100,21 @@ export const ProjectVersionRequestSchema = z
   .object({ expectedVersion: ProjectVersionSchema })
   .strict();
 
+export const ProjectItemMaterializeRequestSchema = ProjectVersionRequestSchema;
+
+export const ProjectItemProductAssignRequestSchema = z
+  .object({
+    productId: ProductReferenceIdSchema,
+    expectedVersion: ProjectVersionSchema,
+  })
+  .strict();
+
+export const ProjectItemProductRemoveRequestSchema = ProjectVersionRequestSchema;
+export const ProjectItemProductBulkAssignRequestSchema = ProjectItemProductAssignRequestSchema;
+
 export type ProjectCreateRequest = Readonly<z.infer<typeof ProjectCreateRequestSchema>>;
 export type ProjectUpdateRequest = Readonly<z.infer<typeof ProjectUpdateRequestSchema>>;
 export type ProjectVersionRequest = Readonly<z.infer<typeof ProjectVersionRequestSchema>>;
+export type ProjectItemProductAssignRequest = Readonly<
+  z.infer<typeof ProjectItemProductAssignRequestSchema>
+>;

@@ -96,9 +96,9 @@ The arrows express business flow, not always foreign-key direction. In particula
 | `MediaImportBatchItem` | Deterministic per-input import result; user-facing | Workspace + batch | Batch, optional media → none | Unique input index/batch and workspace/id; batch C, media R; bounded explicit outcome |
 | `Schedule` | Scheduling template; user-facing | Workspace | Workspace, creator → projects and runs | Unique name per workspace; references R; enum kind, free-text status/DST policies |
 | `Project` | Local future-publish configuration over a Dataset; user-facing | Workspace | Dataset, optional account/device/schedule, creator → items/jobs | Unique name per workspace; explicit DRAFT/READY/ARCHIVED lifecycle, bounded daily target/window, optimistic version; no execution in Slice 3.6 |
-| `ProjectItem` | Stable project materialization of a dataset item; user-facing | Workspace + project | Project, dataset item, media → product joins/jobs | Unique source item and position per project; product joins C, other references R; free-text status |
+| `ProjectItem` | Stable project materialization of a dataset item; user-facing | Workspace + project | Project, dataset item, media → future product joins/jobs | Unique source item and non-negative deferrable position per project; ACTIVE/ARCHIVED lifecycle; configured rows are preserved |
 | `ProductReference` | Local unverified AffiliateProduct configuration; user-facing | Workspace + account | ACTIVE account → future project-item joins | Partial unique operator reference per account; joins R; MANUAL source and ACTIVE/ARCHIVED lifecycle |
-| `ProjectItemProduct` | Ordered product attachment; user-facing | Project item | Project item + product | Composite PK and unique position; C with item, product R; no status |
+| `ProjectItemProduct` | Primary AffiliateProduct assignment; user-facing | Project item | Project item + product | Composite PK, one row per item, position fixed to zero; C with item, product R; lifecycle follows parents |
 | `ScheduleRun` | Idempotent occurrence of a schedule; internal | Workspace + schedule | Schedule → publish jobs | Unique schedule/time/local occurrence; references R; free-text status |
 | `PublishJob` | Durable publish intent and state machine; internal/operator-visible | Workspace | Project, item, account, media, optional device/run/retry, creator → attempts, leases, events | Unique SHA-256 idempotency key per workspace; all references R; canonical job status/publisher/priority/error enums and SQL transition trigger |
 | `PublishAttempt` | Numbered execution try; internal/operator-visible | Workspace + job | Job, matching worker/device → result/events | Unique attempt number/job and workspace/job/id; parents R; free-text status, enum error category |
@@ -235,7 +235,7 @@ This inventory excludes ordinary `createdAt`/`updatedAt` audit timestamps. A row
 | `Project` | `publisherKind` | CANONICAL ENUM | `PublisherKind` |
 | `Project` | `status` | CONSTRAINED TEXT | `DRAFT`, `READY`, `ARCHIVED` |
 | `Project` | `captionMode` | UNCONSTRAINED TEXT | Template/caption behavior remains deferred; Slice 3.6 uses only the dormant safe default |
-| `ProjectItem` | `status` | UNCONSTRAINED TEXT | Vocabulary deferred |
+| `ProjectItem` | `status` | CONSTRAINED TEXT | `ACTIVE`, `ARCHIVED`; Slice 4.2 creates only ACTIVE rows |
 | `ProductReference` | `source` | CANONICAL ENUM | `ProductSource` |
 | `ProductReference` | `status` | CONSTRAINED TEXT | `ACTIVE`, `ARCHIVED` |
 | `ScheduleRun` | `status`, `errorCode` | UNCONSTRAINED TEXT | Run/error vocabularies deferred |
@@ -271,7 +271,6 @@ These columns are structurally present but are not yet controlled vocabularies. 
 | `MediaAsset` | later processing/retention statuses | Unconstrained text | Inspection is finalized, but derivative-processing and retention lifecycle semantics do not exist yet | Later Phase 3 media slices |
 | `Dataset` | `status` | Unconstrained text | Archive/edit behavior is not implemented | Phase 3 |
 | `Project` | `captionMode` and execution policy fields | Unconstrained/dormant | Caption templates, retry/rate profiles, and publish pre-flight are not implemented | Later project/job slices |
-| `ProjectItem` | `status` | Unconstrained text | Project-item materialization lifecycle is not implemented | Later Phase 4 slice |
 | `PublishAttempt` | `status`, `errorCode` | Unconstrained text | Attempt protocol/recovery vocabulary belongs to the job engine | Phase 5 |
 | `PublishResult` | `outcome`, `statusValue` | Unconstrained text | Result vocabulary depends on verified adapter semantics | Phase 5 |
 | `JobEvent` | `eventType`, `actorType` | Unconstrained text | Event taxonomy must follow implemented job commands | Phase 5 |

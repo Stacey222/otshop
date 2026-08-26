@@ -121,7 +121,7 @@ export interface DatasetRepositoryPort {
     readonly expectedVersion: number;
   }): Promise<
     | { readonly state: "REMOVED"; readonly dataset: DatasetRecord }
-    | { readonly state: DatasetMutationState | "ITEM_NOT_FOUND" }
+    | { readonly state: DatasetMutationState | "ITEM_NOT_FOUND" | "PROJECT_ITEM_CONFLICT" }
   >;
   reorder(input: {
     readonly workspaceId: string;

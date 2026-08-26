@@ -46,6 +46,10 @@ Implement projects, reusable caption templates with constrained variables, produ
 
 Slice 4.1 reuses the canonical ShopeeAccount and ProductReference tables for local workspace-owned ACTIVE/ARCHIVED configuration, credential-free account selection, syntactically validated but unverified operator product references, bounded APIs, and optimistic concurrency. Project-level defaults, ProjectItem product assignment, connectivity, scraping, scheduling, jobs, workers, Android, Shopee automation, and publishing remain separately gated.
 
+Slice 4.2 materializes canonical DatasetItems into workspace-qualified ProjectItems for DRAFT Projects with deterministic ordering, idempotent reconciliation, safe configured-row preservation, Project-version concurrency, and a READY precondition. Product assignment, captions, scheduling, jobs, workers, Android, Shopee connectivity, and publishing remain separately gated.
+
+Slice 4.3 reuses ProductReference and ProjectItemProduct for one primary AffiliateProduct assignment per active materialized ProjectItem. It adds workspace-scoped single assign/read/remove and bounded bulk-assign operations, account compatibility, idempotent replacement, Project-version concurrency, historical reads for archived products, reconciliation protection, and READY validation. Captions, scheduling, jobs, workers, Android, Shopee connectivity, and publishing remain separately gated.
+
 Gate: template escaping, tenant authorization, configuration validation, pause/resume rules, and readiness reports are tested.
 
 ## Phase 5 — Job engine

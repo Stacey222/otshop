@@ -1,8 +1,16 @@
-import { ProjectRepository, getDatabaseClient } from "@otshop/database";
+import {
+  DatasetRepository,
+  ProjectItemRepository,
+  ProjectRepository,
+  getDatabaseClient,
+} from "@otshop/database";
 import { ROLE_PERMISSIONS, createUuidV7, type AuthenticatedContext } from "@otshop/shared";
+import { NextRequest } from "next/server";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { ProjectService } from "../src/application/projects/project-service";
+import { ProjectItemService } from "../src/application/projects/project-item-service";
+import { POST as materializeRoute } from "../src/app/api/projects/[projectId]/items/materialize/route";
 import type { ApplicationLogger } from "../src/infrastructure/logging/logger";
 
 const prisma = getDatabaseClient();
@@ -34,6 +42,8 @@ const logger: ApplicationLogger = {
 };
 
 const service = new ProjectService(new ProjectRepository(prisma), logger, clock);
+const itemService = new ProjectItemService(new ProjectItemRepository(prisma, clock), logger);
+const datasetRepository = new DatasetRepository(prisma);
 
 const context = (tenant = tenantA): AuthenticatedContext => ({
   userId: tenant.userId,
@@ -173,6 +183,30 @@ const createProject = (name: string, body: Record<string, unknown> = {}) =>
     body: { name, datasetId: datasetActiveA, ...body },
   });
 
+async function createMaterializationFixture(name: string, itemCount = 3) {
+  const datasetId = id();
+  await prisma.dataset.create({
+    data: {
+      id: datasetId,
+      workspaceId: tenantA.workspaceId,
+      createdByUserId: tenantA.userId,
+      name,
+      status: "ACTIVE",
+    },
+  });
+  const items: { id: string; mediaAssetId: string; position: number }[] = [];
+  for (let position = 0; position < itemCount; position += 1) {
+    const mediaAssetId = id();
+    await seedMedia(mediaAssetId, tenantA.workspaceId, 100 + sequence);
+    items.push({ id: id(), mediaAssetId, position });
+  }
+  await prisma.datasetItem.createMany({
+    data: items.map((item) => ({ ...item, workspaceId: tenantA.workspaceId, datasetId })),
+  });
+  const project = await createProject(`${name} project`, { datasetId, dailyTarget: 5 });
+  return { datasetId, items, project };
+}
+
 describe("database-backed project configuration foundation", () => {
   it("creates, reads, updates, validates READY, and archives without execution work", async () => {
     let project = await createProject("Project lifecycle", {
@@ -194,18 +228,32 @@ describe("database-backed project configuration foundation", () => {
       projectId: project.projectId,
       body: { expectedVersion: project.version, description: "Local configuration" },
     });
-    project = await service.markReady({
+    const materialized = await itemService.materialize({
       context: context(),
       requestId,
       projectId: project.projectId,
       body: { expectedVersion: project.version },
     });
+    project = await service.markReady({
+      context: context(),
+      requestId,
+      projectId: project.projectId,
+      body: { expectedVersion: materialized.projectVersion },
+    });
     expect(project.status).toBe("READY");
-    expect(await prisma.projectItem.count({ where: { projectId: project.projectId } })).toBe(0);
+    expect(await prisma.projectItem.count({ where: { projectId: project.projectId } })).toBe(1);
     expect(await prisma.publishJob.count({ where: { projectId: project.projectId } })).toBe(0);
     expect(
       await prisma.schedule.count({ where: { projects: { some: { id: project.projectId } } } }),
     ).toBe(0);
+    await expect(
+      itemService.materialize({
+        context: context(),
+        requestId,
+        projectId: project.projectId,
+        body: { expectedVersion: project.version },
+      }),
+    ).rejects.toMatchObject({ code: "PROJECT_NOT_CONFIGURABLE" });
     project = await service.archive({
       context: context(),
       requestId,
@@ -271,12 +319,18 @@ describe("database-backed project configuration foundation", () => {
       }),
     ).rejects.toMatchObject({ code: "PROJECT_NOT_CONFIGURABLE" });
     const noAccount = await createProject("No account required project", { dailyTarget: 5 });
+    const noAccountItems = await itemService.materialize({
+      context: context(),
+      requestId,
+      projectId: noAccount.projectId,
+      body: { expectedVersion: noAccount.version },
+    });
     await expect(
       service.markReady({
         context: context(),
         requestId,
         projectId: noAccount.projectId,
-        body: { expectedVersion: noAccount.version },
+        body: { expectedVersion: noAccountItems.projectVersion },
       }),
     ).resolves.toMatchObject({ status: "READY", accountId: null });
   });
@@ -360,18 +414,24 @@ describe("database-backed project configuration foundation", () => {
 
   it("serializes READY against update without creating jobs", async () => {
     const project = await createProject("Project ready race", { dailyTarget: 5 });
+    const materialized = await itemService.materialize({
+      context: context(),
+      requestId,
+      projectId: project.projectId,
+      body: { expectedVersion: project.version },
+    });
     const outcomes = await Promise.allSettled([
       service.markReady({
         context: context(),
         requestId,
         projectId: project.projectId,
-        body: { expectedVersion: project.version },
+        body: { expectedVersion: materialized.projectVersion },
       }),
       service.update({
         context: context(),
         requestId,
         projectId: project.projectId,
-        body: { expectedVersion: project.version, description: "Concurrent update" },
+        body: { expectedVersion: materialized.projectVersion, description: "Concurrent update" },
       }),
     ]);
     expect(outcomes.filter(({ status }) => status === "fulfilled")).toHaveLength(1);
@@ -402,5 +462,343 @@ describe("database-backed project configuration foundation", () => {
         data: { datasetId: datasetActiveB },
       }),
     ).rejects.toThrow();
+  });
+});
+
+describe("database-backed ProjectItem materialization", () => {
+  it("requires authentication and fails closed for cross-workspace project identifiers", async () => {
+    const fixture = await createMaterializationFixture("Materialization authorization", 1);
+    const response = await materializeRoute(
+      new NextRequest(
+        `http://localhost:3000/api/projects/${fixture.project.projectId}/items/materialize`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Origin: "http://localhost:3000" },
+          body: JSON.stringify({ expectedVersion: fixture.project.version }),
+        },
+      ),
+      { params: Promise.resolve({ projectId: fixture.project.projectId }) },
+    );
+    expect(response.status).toBe(401);
+    await expect(
+      itemService.materialize({
+        context: context(tenantB),
+        requestId,
+        projectId: fixture.project.projectId,
+        body: { expectedVersion: fixture.project.version },
+      }),
+    ).rejects.toMatchObject({ code: "PROJECT_NOT_FOUND" });
+  });
+
+  it("materializes canonical order idempotently without downstream execution records", async () => {
+    const fixture = await createMaterializationFixture("Materialization idempotency");
+    const first = await itemService.materialize({
+      context: context(),
+      requestId,
+      projectId: fixture.project.projectId,
+      body: { expectedVersion: fixture.project.version },
+    });
+    expect(first).toMatchObject({
+      changed: true,
+      createdCount: 3,
+      itemCount: 3,
+      projectVersion: fixture.project.version + 1,
+    });
+    const identifiers = (
+      await prisma.projectItem.findMany({
+        where: { projectId: fixture.project.projectId },
+        orderBy: { position: "asc" },
+      })
+    ).map(({ id, datasetItemId, mediaAssetId, position }) => ({
+      id,
+      datasetItemId,
+      mediaAssetId,
+      position,
+    }));
+    expect(identifiers.map(({ datasetItemId }) => datasetItemId)).toEqual(
+      fixture.items.map(({ id: datasetItemId }) => datasetItemId),
+    );
+    await expect(
+      itemService.materialize({
+        context: context(),
+        requestId,
+        projectId: fixture.project.projectId,
+        body: { expectedVersion: first.projectVersion },
+      }),
+    ).resolves.toMatchObject({ changed: false, projectVersion: first.projectVersion });
+    expect(
+      (
+        await prisma.projectItem.findMany({
+          where: { projectId: fixture.project.projectId },
+          orderBy: { position: "asc" },
+        })
+      ).map(({ id, datasetItemId, mediaAssetId, position }) => ({
+        id,
+        datasetItemId,
+        mediaAssetId,
+        position,
+      })),
+    ).toEqual(identifiers);
+    expect(
+      await prisma.projectItemProduct.count({
+        where: { projectItem: { projectId: fixture.project.projectId } },
+      }),
+    ).toBe(0);
+    expect(await prisma.publishJob.count({ where: { projectId: fixture.project.projectId } })).toBe(
+      0,
+    );
+    expect(await prisma.scheduleRun.count()).toBe(0);
+    await expect(
+      prisma.projectItem.update({
+        where: { id: identifiers[0]!.id },
+        data: { status: "UNKNOWN" },
+      }),
+    ).rejects.toThrow();
+    await expect(
+      prisma.projectItem.update({
+        where: { id: identifiers[0]!.id },
+        data: { position: -1 },
+      }),
+    ).rejects.toThrow();
+  });
+
+  it("reconciles Dataset order deterministically and requires materialization before READY", async () => {
+    const fixture = await createMaterializationFixture("Materialization reorder");
+    await expect(
+      service.markReady({
+        context: context(),
+        requestId,
+        projectId: fixture.project.projectId,
+        body: { expectedVersion: fixture.project.version },
+      }),
+    ).rejects.toMatchObject({ code: "PROJECT_NOT_CONFIGURABLE" });
+    const first = await itemService.materialize({
+      context: context(),
+      requestId,
+      projectId: fixture.project.projectId,
+      body: { expectedVersion: fixture.project.version },
+    });
+    const reversed = [...fixture.items].reverse().map(({ id: itemId }) => itemId);
+    const race = await Promise.allSettled([
+      datasetRepository.reorder({
+        workspaceId: tenantA.workspaceId,
+        datasetId: fixture.datasetId,
+        itemIds: reversed,
+        expectedVersion: 1,
+      }),
+      itemService.materialize({
+        context: context(),
+        requestId,
+        projectId: fixture.project.projectId,
+        body: { expectedVersion: first.projectVersion },
+      }),
+    ]);
+    expect(race.some(({ status }) => status === "fulfilled")).toBe(true);
+    const datasetAfterRace = await prisma.dataset.findUniqueOrThrow({
+      where: { id: fixture.datasetId },
+      include: { items: { orderBy: { position: "asc" } } },
+    });
+    if (datasetAfterRace.items.map(({ id: itemId }) => itemId).join() !== reversed.join()) {
+      await expect(
+        datasetRepository.reorder({
+          workspaceId: tenantA.workspaceId,
+          datasetId: fixture.datasetId,
+          itemIds: reversed,
+          expectedVersion: datasetAfterRace.version,
+        }),
+      ).resolves.toMatchObject({ state: "REORDERED" });
+    }
+    const current = await prisma.project.findUniqueOrThrow({
+      where: { id: fixture.project.projectId },
+    });
+    await expect(
+      itemService.materialize({
+        context: context(),
+        requestId,
+        projectId: fixture.project.projectId,
+        body: { expectedVersion: current.version },
+      }),
+    ).resolves.toMatchObject({ changed: true, reorderedCount: 2 });
+    expect(
+      (
+        await prisma.projectItem.findMany({
+          where: { projectId: fixture.project.projectId },
+          orderBy: { position: "asc" },
+        })
+      ).map(({ datasetItemId }) => datasetItemId),
+    ).toEqual(reversed);
+  });
+
+  it("allows one winner for simultaneous materializations and stale Project versions", async () => {
+    const fixture = await createMaterializationFixture("Materialization race");
+    const outcomes = await Promise.allSettled([
+      itemService.materialize({
+        context: context(),
+        requestId,
+        projectId: fixture.project.projectId,
+        body: { expectedVersion: fixture.project.version },
+      }),
+      itemService.materialize({
+        context: context(),
+        requestId,
+        projectId: fixture.project.projectId,
+        body: { expectedVersion: fixture.project.version },
+      }),
+    ]);
+    expect(outcomes.filter(({ status }) => status === "fulfilled")).toHaveLength(1);
+    expect(
+      await prisma.projectItem.count({ where: { projectId: fixture.project.projectId } }),
+    ).toBe(fixture.items.length);
+    const sourceIds = (
+      await prisma.projectItem.findMany({
+        where: { projectId: fixture.project.projectId },
+        select: { datasetItemId: true },
+      })
+    ).map(({ datasetItemId }) => datasetItemId);
+    expect(new Set(sourceIds).size).toBe(sourceIds.length);
+  });
+
+  it("reconciles a DRAFT Project Dataset switch by replacing only pristine materialization", async () => {
+    const original = await createMaterializationFixture("Materialization dataset switch A", 2);
+    const replacement = await createMaterializationFixture("Materialization dataset switch B", 2);
+    const first = await itemService.materialize({
+      context: context(),
+      requestId,
+      projectId: original.project.projectId,
+      body: { expectedVersion: original.project.version },
+    });
+    const updated = await service.update({
+      context: context(),
+      requestId,
+      projectId: original.project.projectId,
+      body: { expectedVersion: first.projectVersion, datasetId: replacement.datasetId },
+    });
+    await expect(
+      itemService.materialize({
+        context: context(),
+        requestId,
+        projectId: original.project.projectId,
+        body: { expectedVersion: updated.version },
+      }),
+    ).resolves.toMatchObject({ createdCount: 2, removedCount: 2, itemCount: 2 });
+    expect(
+      (
+        await prisma.projectItem.findMany({
+          where: { projectId: original.project.projectId },
+          orderBy: { position: "asc" },
+        })
+      ).map(({ datasetItemId }) => datasetItemId),
+    ).toEqual(replacement.items.map(({ id: datasetItemId }) => datasetItemId));
+  });
+
+  it("converges after concurrent Dataset mutation and materialization", async () => {
+    const fixture = await createMaterializationFixture("Materialization dataset race", 2);
+    const newMediaId = id();
+    const newItemId = id();
+    await seedMedia(newMediaId, tenantA.workspaceId, 180);
+    await Promise.allSettled([
+      datasetRepository.addItem({
+        id: newItemId,
+        workspaceId: tenantA.workspaceId,
+        datasetId: fixture.datasetId,
+        mediaAssetId: newMediaId,
+        captionOverride: null,
+        expectedVersion: 1,
+        maximumItems: 1_000,
+      }),
+      itemService.materialize({
+        context: context(),
+        requestId,
+        projectId: fixture.project.projectId,
+        body: { expectedVersion: fixture.project.version },
+      }),
+    ]);
+    const current = await prisma.project.findUniqueOrThrow({
+      where: { id: fixture.project.projectId },
+    });
+    await itemService.materialize({
+      context: context(),
+      requestId,
+      projectId: fixture.project.projectId,
+      body: { expectedVersion: current.version },
+    });
+    const [sources, materialized] = await Promise.all([
+      prisma.datasetItem.findMany({
+        where: { datasetId: fixture.datasetId },
+        orderBy: { position: "asc" },
+      }),
+      prisma.projectItem.findMany({
+        where: { projectId: fixture.project.projectId },
+        orderBy: { position: "asc" },
+      }),
+    ]);
+    expect(
+      materialized.map(({ datasetItemId, mediaAssetId, position }) => ({
+        datasetItemId,
+        mediaAssetId,
+        position,
+      })),
+    ).toEqual(
+      sources.map(({ id: datasetItemId, mediaAssetId, position }) => ({
+        datasetItemId,
+        mediaAssetId,
+        position,
+      })),
+    );
+  });
+
+  it("prunes only pristine DRAFT materialization and blocks configured data loss", async () => {
+    const removable = await createMaterializationFixture("Materialization safe removal", 2);
+    const first = await itemService.materialize({
+      context: context(),
+      requestId,
+      projectId: removable.project.projectId,
+      body: { expectedVersion: removable.project.version },
+    });
+    await expect(
+      datasetRepository.removeItem({
+        workspaceId: tenantA.workspaceId,
+        datasetId: removable.datasetId,
+        itemId: removable.items[0]!.id,
+        expectedVersion: 1,
+      }),
+    ).resolves.toMatchObject({ state: "REMOVED" });
+    await expect(
+      itemService.materialize({
+        context: context(),
+        requestId,
+        projectId: removable.project.projectId,
+        body: { expectedVersion: first.projectVersion },
+      }),
+    ).resolves.toMatchObject({ changed: true, itemCount: 1 });
+
+    const protectedFixture = await createMaterializationFixture(
+      "Materialization protected removal",
+      1,
+    );
+    await itemService.materialize({
+      context: context(),
+      requestId,
+      projectId: protectedFixture.project.projectId,
+      body: { expectedVersion: protectedFixture.project.version },
+    });
+    await prisma.projectItem.updateMany({
+      where: { projectId: protectedFixture.project.projectId },
+      data: { caption: "future configured caption" },
+    });
+    await expect(
+      datasetRepository.removeItem({
+        workspaceId: tenantA.workspaceId,
+        datasetId: protectedFixture.datasetId,
+        itemId: protectedFixture.items[0]!.id,
+        expectedVersion: 1,
+      }),
+    ).resolves.toEqual({ state: "PROJECT_ITEM_CONFLICT" });
+    expect(
+      await prisma.datasetItem.count({ where: { datasetId: protectedFixture.datasetId } }),
+    ).toBe(1);
+    expect(
+      await prisma.projectItem.count({ where: { projectId: protectedFixture.project.projectId } }),
+    ).toBe(1);
   });
 });

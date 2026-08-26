@@ -115,7 +115,9 @@ export class DatasetService {
     return canonical;
   }
 
-  private mutationFailure(state: DatasetMutationState | "ITEM_NOT_FOUND"): never {
+  private mutationFailure(
+    state: DatasetMutationState | "ITEM_NOT_FOUND" | "PROJECT_ITEM_CONFLICT",
+  ): never {
     if (state === "NOT_FOUND") throw new DatasetNotFoundError();
     if (state === "ARCHIVED") throw new DatasetArchivedError();
     if (state === "ITEM_NOT_FOUND") throw new DatasetItemNotFoundError();

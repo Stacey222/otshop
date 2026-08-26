@@ -180,7 +180,7 @@ Unique `(workspace_id, name)` and `(workspace_id, id)`. The posting window is ei
 
 ### `project_items`
 
-`id uuid` PK; `workspace_id`, `project_id`, `dataset_item_id`, `media_asset_id` non-null composite FKs; `position integer` non-null; `caption text` nullable; `status text` non-null with its vocabulary deferred to Phase 4; `custom_fields jsonb` non-null bounded; timestamps. Unique `(project_id, dataset_item_id)`, `(project_id, position)`, and `(workspace_id, id)`. `media_asset_id` is copied and constrained for stable job construction; application validation ensures it matches the dataset item. Delete: `RESTRICT` after a job references it.
+`id uuid` PK; `workspace_id`, `project_id`, `dataset_item_id`, `media_asset_id` non-null composite FKs; non-negative `position`; `caption text` nullable and dormant; `status` constrained to `ACTIVE | ARCHIVED`; `custom_fields jsonb` non-null and dormant; timestamps. Unique `(project_id, dataset_item_id)`, deferrable unique `(project_id, position)`, and unique `(workspace_id, id)`. `media_asset_id` is copied and checked by materialization against the DatasetItem. Slice 4.2 materializes only DRAFT Projects and deletes only pristine DRAFT rows during reconciliation; configured rows fail closed. Delete remains `RESTRICT` after a job references it.
 
 ### `product_references`
 
@@ -188,7 +188,7 @@ Unique `(workspace_id, name)` and `(workspace_id, id)`. The posting window is ei
 
 Unique `(workspace_id, account_id, operator_reference)` where non-null; indexes support account/display and workspace lifecycle listing. `operator_reference` and URL are operator-supplied, unverified, and make no API capability claim. Delete: `RESTRICT`; archive instead.
 
-`project_item_products`: `workspace_id`, `project_item_id`, `product_reference_id` non-null composite FKs; `position integer` non-null; `created_at` non-null; composite PK `(project_item_id, product_reference_id)` and unique `(project_item_id, position)`. Application pre-flight rejects product attachment when the selected publisher lacks that capability.
+`project_item_products`: `workspace_id`, `project_item_id`, `product_reference_id` non-null composite FKs; `position integer` fixed to `0`; `created_at` non-null; composite PK `(project_item_id, product_reference_id)` and unique `project_item_id`. Slice 4.3 treats this as one primary AffiliateProduct assignment per ProjectItem. Assignment requires a DRAFT Project, an ACTIVE ProjectItem, and an ACTIVE MANUAL ProductReference owned by the Project's non-null account. Archived assigned products remain readable as historical configuration but fail READY validation. Replacement and removal are atomic and advance the Project version only when configuration changes.
 
 ## Scheduling tables
 

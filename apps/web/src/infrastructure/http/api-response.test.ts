@@ -25,6 +25,12 @@ import {
   ProjectNotFoundError,
 } from "@/application/projects/project-errors";
 import {
+  ProjectItemNotFoundError,
+  ProjectItemProductAccountMismatchError,
+  ProjectItemProductConflictError,
+  ProjectItemReconciliationConflictError,
+} from "@/application/projects/project-item-errors";
+import {
   ShopeeAccountArchivedError,
   ShopeeAccountNotFoundError,
 } from "@/application/accounts/account-errors";
@@ -42,6 +48,16 @@ describe("safe API error boundary", () => {
     expect(mapErrorToSafeHttp(new AuthorizationDeniedError())).toMatchObject({
       status: 403,
       body: { code: "AUTHORIZATION_DENIED" },
+    });
+  });
+
+  it("maps product-assignment lookup, compatibility, and concurrency errors safely", () => {
+    expect(mapErrorToSafeHttp(new ProjectItemNotFoundError())).toMatchObject({ status: 404 });
+    expect(mapErrorToSafeHttp(new ProjectItemProductAccountMismatchError())).toMatchObject({
+      status: 409,
+    });
+    expect(mapErrorToSafeHttp(new ProjectItemProductConflictError())).toMatchObject({
+      status: 409,
     });
   });
 
@@ -81,6 +97,13 @@ describe("safe API error boundary", () => {
     expect(mapErrorToSafeHttp(new ProjectNotFoundError())).toMatchObject({ status: 404 });
     expect(mapErrorToSafeHttp(new ProjectArchivedError())).toMatchObject({ status: 409 });
     expect(mapErrorToSafeHttp(new ProjectConflictError())).toMatchObject({ status: 409 });
+  });
+
+  it("maps ProjectItem reconciliation conflicts without internal details", () => {
+    expect(mapErrorToSafeHttp(new ProjectItemReconciliationConflictError())).toMatchObject({
+      status: 409,
+      body: { code: "PROJECT_ITEM_RECONCILIATION_CONFLICT" },
+    });
   });
 
   it("maps local account and affiliate product errors without persistence details", () => {

@@ -2,6 +2,7 @@ import {
   AuthenticationRepository,
   BootstrapAlreadyCompletedError,
   getDatabaseClient,
+  inspectDeveloperAccessDatabase,
 } from "@otshop/database";
 import { WorkspaceIdSchema, createUuidV7 } from "@otshop/shared";
 import { NextRequest } from "next/server";
@@ -29,6 +30,7 @@ import { hashSessionToken } from "../src/application/auth/session-token";
 import { publisherTestRequest } from "../src/application/publisher/publisher-test-fixtures";
 import { validMp4 } from "../src/application/media/media-test-fixtures";
 import { getStorageProvider } from "../src/infrastructure/media/runtime";
+import { dashboardPageDecision } from "../src/presentation/page-access";
 
 const prisma = getDatabaseClient();
 const now = new Date();
@@ -38,6 +40,25 @@ const id = (): string => createUuidV7(now.getTime());
 
 describe("database-backed authentication and authorization", () => {
   it("enforces bootstrap, sessions, RBAC, audit, lifecycle, and tenant isolation", async () => {
+    const requiredMigrations = [
+      "20260824092000_enable_citext",
+      "20260824093000_initial_database_foundation",
+      "20260824094000_database_invariants",
+      "20260824110000_worker_device_assignment_integrity",
+      "20260825120000_thumbnail_generation_claim",
+      "20260825150000_dataset_lifecycle",
+      "20260825180000_media_import_batches",
+      "20260825210000_project_configuration_foundation",
+      "20260825223000_account_product_configuration_foundation",
+      "20260825233000_project_item_materialization_foundation",
+      "20260826090000_project_item_product_assignment_foundation",
+    ];
+    await expect(
+      inspectDeveloperAccessDatabase({ client: prisma, requiredMigrations }),
+    ).resolves.toMatchObject({
+      code: "READY_FOR_BOOTSTRAP",
+      superAdminState: "SUPER_ADMIN_NOT_CREATED",
+    });
     const repository = new AuthenticationRepository(prisma);
     const passwords = new Argon2idPasswordHasher();
     const bootstrap = new SuperAdminBootstrapService(repository, passwords, () => now);
@@ -54,6 +75,12 @@ describe("database-backed authentication and authorization", () => {
     expect(bootstrapUser.credential?.passwordHash).toMatch(/^\$argon2id\$/u);
     expect(bootstrapUser.credential?.passwordHash).not.toContain(bootstrapPassword);
     expect(bootstrapUser.systemRoles.map(({ role }) => role.code)).toEqual(["SUPER_ADMIN"]);
+    await expect(
+      inspectDeveloperAccessDatabase({ client: prisma, requiredMigrations }),
+    ).resolves.toMatchObject({
+      code: "READY_FOR_LOGIN",
+      superAdminState: "SUPER_ADMIN_ALREADY_EXISTS",
+    });
     await expect(
       passwords.verify(bootstrapUser.credential?.passwordHash ?? "", bootstrapPassword),
     ).resolves.toMatchObject({ valid: true });
@@ -153,9 +180,44 @@ describe("database-backed authentication and authorization", () => {
             status: "ACTIVE",
             joinedAt: now,
           },
+          {
+            id: id(),
+            workspaceId: workspaceA,
+            userId: bootstrapped.userId,
+            roleId: role.id,
+            status: "ACTIVE",
+            joinedAt: now,
+          },
         ],
       });
     });
+
+    const bootstrapLoginResponse = await loginRoute(
+      new NextRequest("http://localhost:3000/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Origin: "http://localhost:3000" },
+        body: JSON.stringify({ email: "root@example.test", password: bootstrapPassword }),
+      }),
+    );
+    expect(bootstrapLoginResponse.status).toBe(200);
+    const bootstrapCookie = bootstrapLoginResponse.headers.get("set-cookie") ?? "";
+    const bootstrapToken = /otshop_session=([^;]+)/u.exec(bootstrapCookie)?.[1];
+    expect(bootstrapToken).toBeDefined();
+    const bootstrapSelection = await selectWorkspaceRoute(
+      new NextRequest("http://localhost:3000/api/workspaces/select", {
+        method: "POST",
+        headers: {
+          Cookie: `otshop_session=${bootstrapToken}`,
+          "Content-Type": "application/json",
+          Origin: "http://localhost:3000",
+        },
+        body: JSON.stringify({ workspaceId: workspaceA }),
+      }),
+    );
+    expect(bootstrapSelection.status).toBe(200);
+    expect(
+      dashboardPageDecision({ authenticated: true, serviceAvailable: true, workspaceValid: true }),
+    ).toBe("allow");
 
     let currentTime = new Date(now);
     const auth = new AuthenticationService(

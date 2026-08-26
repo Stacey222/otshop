@@ -107,6 +107,16 @@ input {
   font: inherit;
 }
 
+.password-input {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.5rem;
+}
+
+.password-visibility-button {
+  min-width: 4.75rem;
+}
+
 button,
 .empty-state a,
 .status-grid a {

@@ -318,6 +318,16 @@ export class AffiliateProductRepository {
           const accountId = input.accountId ?? current!.accountId;
           if (!(await activeAccount(tx, input.workspaceId, accountId)))
             return { state: "INVALID_ACCOUNT" } as const;
+          if (input.accountId !== undefined) {
+            const incompatibleAssignments = await tx.projectItemProduct.count({
+              where: {
+                workspaceId: input.workspaceId,
+                productReferenceId: input.productId,
+                projectItem: { project: { accountId: { not: input.accountId } } },
+              },
+            });
+            if (incompatibleAssignments > 0) return { state: "INVALID_ACCOUNT" } as const;
+          }
           const productUrl =
             input.productUrl === undefined ? current!.productUrl : input.productUrl;
           const productIdentifier =

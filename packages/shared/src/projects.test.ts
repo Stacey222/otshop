@@ -3,11 +3,16 @@ import { describe, expect, it } from "vitest";
 import {
   PROJECT_DAILY_TARGET_MAX,
   ProjectCreateRequestSchema,
+  ProjectItemMaterializeRequestSchema,
+  ProjectItemProductAssignRequestSchema,
+  ProjectItemProductBulkAssignRequestSchema,
+  ProjectItemStatusSchema,
   ProjectPostingWindowSchema,
   ProjectUpdateRequestSchema,
 } from "./projects";
 
 const datasetId = "01941f29-7c00-7000-8000-000000000001";
+const productId = "01941f29-7c00-7000-8000-000000000002";
 
 describe("project configuration contracts", () => {
   it("normalizes bounded project input and rejects ownership fields", () => {
@@ -75,5 +80,30 @@ describe("project configuration contracts", () => {
       expectedVersion: 1,
       postingWindow: null,
     });
+  });
+
+  it("bounds ProjectItem lifecycle and materialization input", () => {
+    expect(ProjectItemStatusSchema.options).toEqual(["ACTIVE", "ARCHIVED"]);
+    expect(ProjectItemMaterializeRequestSchema.parse({ expectedVersion: 1 })).toEqual({
+      expectedVersion: 1,
+    });
+    expect(() =>
+      ProjectItemMaterializeRequestSchema.parse({ expectedVersion: 1, workspaceId: datasetId }),
+    ).toThrow();
+  });
+
+  it("strictly validates single and bounded-all product assignment commands", () => {
+    const command = { productId, expectedVersion: 2 };
+    expect(ProjectItemProductAssignRequestSchema.parse(command)).toEqual(command);
+    expect(ProjectItemProductBulkAssignRequestSchema.parse(command)).toEqual(command);
+    expect(() =>
+      ProjectItemProductAssignRequestSchema.parse({
+        ...command,
+        productUrl: "https://example.test",
+      }),
+    ).toThrow();
+    expect(() =>
+      ProjectItemProductAssignRequestSchema.parse({ productId: "invalid", expectedVersion: 2 }),
+    ).toThrow();
   });
 });
